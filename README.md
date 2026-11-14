@@ -1,5 +1,5 @@
 
-# 🤖 Agent Backend
+# 🤖 Agent Backend by NirZon
 
 ### A Secure AI-Powered Autonomous Coding Assistant for GoatBot Messenger
 
@@ -47,6 +47,15 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
               |
         PROJECT FILES
 ```
+---
+
+## License
+
+Copyright (c) 2026 Md SalmaN(NirZon).
+
+All rights reserved.
+
+Unauthorized copying, modification, distribution, or commercial use of this project is prohibited without prior written permission from the copyright owner.
 
 ---
 
