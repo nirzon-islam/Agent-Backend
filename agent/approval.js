@@ -2,7 +2,7 @@
 
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { hashAction, checkActionPermission } = require("./security");
+const { hashAction, checkActionPermission, validateExecutableAction } = require("./security");
 const Task = require("./models/Task");
 
 const approvalSchema = new mongoose.Schema({
@@ -41,6 +41,11 @@ async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 *
       !action || typeof action !== "object" || Array.isArray(action) ||
       typeof action.type !== "string") {
     throw new Error("Missing or invalid approval information");
+  }
+
+  validateExecutableAction(action);
+  if (!["create", "edit"].includes(action.type)) {
+    throw new Error("Only create/edit actions may enter approval workflow");
   }
 
   const permission = checkActionPermission(action.type);
