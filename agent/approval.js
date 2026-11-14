@@ -12,13 +12,11 @@ const approvalSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true
     },
 
     taskId: {
       type: String,
-      required: true,
-      index: true
+      required: true
     },
 
     action: {
@@ -50,8 +48,7 @@ const approvalSchema = new mongoose.Schema(
 
     expiresAt: {
       type: Date,
-      required: true,
-      index: true
+      required: true
     }
   },
   {
