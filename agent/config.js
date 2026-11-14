@@ -13,6 +13,11 @@ const config = {
     name: "agent_backend"
   },
 
+  adminBootstrap: {
+    username: (process.env.ADMIN_USERNAME || "").trim().toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || ""
+  },
+
   ai: {
     providers: {
       gemini: {
@@ -62,6 +67,26 @@ if (
   config.app.port > 65535
 ) {
   throw new Error("Invalid PORT configuration");
+}
+
+const hasUsername = Boolean(config.adminBootstrap.username);
+const hasPassword = Boolean(config.adminBootstrap.password);
+
+if (hasUsername !== hasPassword) {
+  throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD must be configured together.");
+}
+
+if (hasUsername) {
+  if (!/^[a-z0-9_-]{3,40}$/.test(config.adminBootstrap.username)) {
+    throw new Error("Invalid ADMIN_USERNAME format.");
+  }
+
+  if (
+    config.adminBootstrap.password.length < 12 ||
+    config.adminBootstrap.password.length > 128
+  ) {
+    throw new Error("ADMIN_PASSWORD must be 12-128 characters.");
+  }
 }
 
 module.exports = Object.freeze(config);
