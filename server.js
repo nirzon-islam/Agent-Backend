@@ -20,6 +20,7 @@ const authenticate = require("./agent/auth/authenticate");
 const requireOwner = require("./agent/middleware/requireOwner");
 const bridgeRoutes = require("./agent/routes/bridge");
 const taskRoutes = require("./agent/routes/tasks");
+const approvalRoutes = require("./agent/routes/approvals");
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use("/api/auth", authRoutes);
 
 // Owner-authenticated website task routes.
 app.use("/api/tasks", authenticate, requireOwner, taskRoutes);
+app.use("/api/approvals", authenticate, requireOwner, approvalRoutes);
 
 // Signed Railway Bridge routes.
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
