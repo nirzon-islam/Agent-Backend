@@ -23,7 +23,8 @@ const config = {
   },
   bridge: {
     enabled: process.env.BRIDGE_ENABLED === "true",
-    secret: process.env.BRIDGE_SECRET || ""
+    secret: process.env.BRIDGE_SECRET || "",
+    allowedSenderIds: (process.env.AGENT_ALLOWED_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean)
   },
   security: {
     requireApproval: true,
