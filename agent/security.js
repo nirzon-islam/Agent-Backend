@@ -3,7 +3,7 @@
 const crypto = require("crypto");
 const config = require("./config");
 
-const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "test"]);
+const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "install", "test", "update"]);
 
 
 const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
