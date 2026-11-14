@@ -48,3 +48,30 @@ test("protected action types require approval; read/test do not", () => {
   assert.equal(security.checkActionPermission("install").requiresApproval, true);
   assert.throws(() => security.checkActionPermission("shell"));
 });
+
+test("executable action schema matches the restricted Railway executor", () => {
+  assert.equal(security.validateExecutableAction({
+    type: "edit", path: "languages/bn.lang", content: "hello"
+  }).type, "edit");
+  assert.equal(security.validateExecutableAction({
+    type: "read", path: "languages/bn.lang"
+  }).type, "read");
+  assert.equal(security.validateExecutableAction({
+    type: "test", path: "languages/helper.js"
+  }).type, "test");
+  assert.throws(() => security.validateExecutableAction({
+    type: "delete", path: "languages/bn.lang"
+  }), /Unsupported executable action/);
+  assert.throws(() => security.validateExecutableAction({
+    type: "edit", path: "scripts/cmds/admin.js", content: "x"
+  }), /outside the language workspace/);
+  assert.throws(() => security.validateExecutableAction({
+    type: "edit", path: "languages/bn.lang", content: "x", command: "rm -rf"
+  }), /invalid shape/);
+  assert.throws(() => security.validateExecutableAction({
+    type: "edit", path: "languages/bn.lang", content: "x".repeat(65537)
+  }), /64 KiB/);
+  assert.throws(() => security.validateExecutableAction({
+    type: "test", path: "languages/file.lang"
+  }), /JavaScript files/);
+});
