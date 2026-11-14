@@ -2,7 +2,7 @@
 
 ## Current deployability status
 
-This repository is **not yet a complete production Agent/Messenger integration**. The API server and approval/bridge foundations exist, but there is no complete Messenger task-intake + AI-planner path that safely turns a request into a validated approval record. Do not enable the bridge or connect a live bot until that path and its integration tests are complete.
+The Messenger intake, AI planner, structured action validation, Owner approval workflow, signed bridge client, and opt-in worker path are now implemented on the feature branches. However, database-backed end-to-end tests and credential rotation/history review remain outstanding. Keep the bridge and worker disabled until those checks are complete.
 
 ## Runtime
 
@@ -20,7 +20,7 @@ Use MongoDB Atlas or another MongoDB deployment that supports replica-set transa
 
 See `.env.example`. Set `MONGODB_URI`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`. Admin username must be 3–40 lowercase letters, digits, underscore or hyphen; password must be 12–128 characters. Use a unique password manager-generated password.
 
-Optional AI keys are provider-specific. Do not assume a provider is active merely because a model name is present. Keep `BRIDGE_ENABLED=false` until the missing integration work is completed. If later enabled, `BRIDGE_SECRET` must be at least 32 characters and identical on the backend and bot.
+Optional AI keys are provider-specific. Do not assume a provider is active merely because a model name is present. Keep `BRIDGE_ENABLED=false` until database-backed integration tests and credential rotation are complete. Configure at least one AI provider key. If enabled later, `BRIDGE_SECRET` must be at least 32 characters and identical on the backend and bot.
 
 ## Render setup (manual)
 
@@ -41,7 +41,7 @@ Render free instances may sleep and are not suitable for reliable always-on work
 - [ ] Rotate any credentials that were ever committed to source control.
 - [ ] Confirm `.env`, database dumps, bot session files and credentials are not committed.
 - [ ] Verify `/api/health` and database startup logs.
-- [ ] Keep `BRIDGE_ENABLED=false` until Messenger intake, planner, task/action binding and integration tests are implemented.
+- [ ] Keep `BRIDGE_ENABLED=false` until Messenger intake, planner, task/action binding and database-backed integration tests are verified.
 
 ## Security
 
