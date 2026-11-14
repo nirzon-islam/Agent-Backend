@@ -3,20 +3,32 @@
 const crypto = require("crypto");
 const config = require("./config");
 
-const ALLOWED_ACTIONS = new Set([
-  "read", "create", "edit", "delete", "install", "test", "update"
-]);
+const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "test"]);
 
 
 const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
 const MAX_PLAN_STEPS = 12;
 
 function validateWorkspaceDirectory(value) {
-  return typeof value === "string" && value.length <= 200 &&
-    /^languages(?:\/[A-Za-z0-9_-]+)*$/.test(value) &&
-    !value.split("/").some(part => [".", "..", "node_modules", "secrets", "cache"].includes(part));
+  if (typeof value !== "string" || value.length > 200 || value.startsWith("/") || value.includes("\\") || value.includes("\0")) return false;
+  const parts = value.split("/");
+  return parts.length > 0 && parts.every(part =>
+    /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(part) &&
+    !["node_modules", "secrets", "credentials", "private", "sessions", "session", "appstate", "cache", ".cache", "logs", "backups", "backup", "coverage", "dist", "build", ".git", ".github"].includes(part)
+  );
 }
 
+function validateWorkspaceFile(value) {
+  if (typeof value !== "string" || value.length > 300 || value.startsWith("/") || value.includes("\\") || value.includes("\0")) return false;
+  const parts = value.split("/");
+  if (!parts.length || !parts.every(part => /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(part) &&
+    !["node_modules", "secrets", "credentials", "private", "sessions", "session", "appstate", "cache", ".cache", "logs", "backups", "backup", "coverage", "dist", "build", ".git", ".github", "account.txt", "Fca_Database"].includes(part))) return false;
+  const base = parts[parts.length - 1];
+  if (/^(config|config\.dev|config\.production|configCommands|configCommands\.dev)\.json$/i.test(base) ||
+      /(^|[._-])(secret|credential|private|appstate|session|token|env)([._-]|$)/i.test(base) ||
+      /^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(base)) return false;
+  return [".js", ".json", ".md", ".yml", ".yaml", ".lang", ".css", ".html", ".txt"].includes(base.slice(base.lastIndexOf(".")).toLowerCase());
+}
 function validateExecutablePlan(plan) {
   if (!plan || typeof plan !== "object" || Array.isArray(plan) || plan.type !== "plan" ||
       Object.keys(plan).some(key => !["type", "steps", "summary"].includes(key)) ||
@@ -54,10 +66,8 @@ function validateExecutableAction(action) {
       keys.some(key => !Object.prototype.hasOwnProperty.call(action, key))) {
     throw new Error("Executable action has an invalid shape");
   }
-  if (typeof action.path !== "string" || action.path.length > 300 ||
-      !/^languages\/(?!\.|.*\/\.)(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:lang|js)$/.test(action.path) ||
-      action.path.split("/").some(part => ["..", ".", "node_modules", "secrets", "cache"].includes(part))) {
-    throw new Error("Executable action path is outside the language workspace");
+  if (!validateWorkspaceFile(action.path)) {
+    throw new Error("Executable action path is outside the approved repository workspace");
   }
   if (action.type === "test" && !action.path.endsWith(".js")) {
     throw new Error("Syntax test supports JavaScript files only");
