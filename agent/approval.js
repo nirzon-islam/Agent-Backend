@@ -1,51 +1,44 @@
-
 "use strict";
 
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 
 const { hashAction } = require("./security");
+const Task = require("./models/Task");
 
 const approvalSchema = new mongoose.Schema(
   {
     approvalId: {
       type: String,
       required: true,
-      unique: true,
+      unique: true
     },
-
     taskId: {
       type: String,
       required: true
     },
-
     action: {
       type: mongoose.Schema.Types.Mixed,
       required: true
     },
-
     actionHash: {
       type: String,
       required: true
     },
-
     requestedBy: {
       type: String,
       required: true
     },
-
     approvedBy: {
       type: String,
       default: null
     },
-
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "consumed", "expired"],
       default: "pending",
       index: true
     },
-
     expiresAt: {
       type: Date,
       required: true
@@ -67,35 +60,90 @@ function createId() {
   return crypto.randomBytes(24).toString("hex");
 }
 
+// Create an approval and link it to its task atomically.
+// This function is intended for trusted server-side agent code, never direct client input.
 async function requestApproval({
   taskId,
   action,
   requestedBy,
   expiresInMs = 15 * 60 * 1000
 }) {
-  if (!taskId || !action || !requestedBy) {
-    throw new Error("Missing approval information");
+  if (
+    typeof taskId !== "string" ||
+    !taskId ||
+    typeof requestedBy !== "string" ||
+    !requestedBy ||
+    !action ||
+    typeof action !== "object" ||
+    Array.isArray(action)
+  ) {
+    throw new Error("Missing or invalid approval information");
   }
 
   if (!Number.isFinite(expiresInMs) || expiresInMs <= 0) {
     throw new Error("Invalid approval expiry");
   }
 
-  const approval = await Approval.create({
-    approvalId: createId(),
-    taskId,
-    action,
-    actionHash: hashAction(action),
-    requestedBy,
-    expiresAt: new Date(Date.now() + expiresInMs)
-  });
+  const approvalId = createId();
+  const session = await mongoose.startSession();
+  let response;
 
-  return {
-    approvalId: approval.approvalId,
-    taskId: approval.taskId,
-    status: approval.status,
-    expiresAt: approval.expiresAt
-  };
+  try {
+    await session.withTransaction(async () => {
+      const task = await Task.findOne({
+        taskId,
+        requestedBy,
+        status: { $in: ["pending", "analyzing"] },
+        approvalId: null
+      }).session(session);
+
+      if (!task) {
+        throw new Error("TASK_NOT_ELIGIBLE_FOR_APPROVAL");
+      }
+
+      const [approval] = await Approval.create([{
+        approvalId,
+        taskId,
+        action,
+        actionHash: hashAction(action),
+        requestedBy,
+        expiresAt: new Date(Date.now() + expiresInMs)
+      }], { session });
+
+      const updatedTask = await Task.findOneAndUpdate(
+        {
+          _id: task._id,
+          status: { $in: ["pending", "analyzing"] },
+          approvalId: null
+        },
+        {
+          $set: {
+            status: "awaiting_approval",
+            approvalId
+          }
+        },
+        {
+          new: true,
+          session
+        }
+      );
+
+      if (!updatedTask) {
+        throw new Error("TASK_STATE_CHANGED");
+      }
+
+      response = {
+        approvalId: approval.approvalId,
+        taskId: approval.taskId,
+        status: approval.status,
+        expiresAt: approval.expiresAt
+      };
+    });
+
+    return response;
+  } finally {
+    await session.endSession();
+  }
 }
 
 async function approve(approvalId, actorId, isAuthorized) {
@@ -196,7 +244,7 @@ async function getPending() {
     status: "pending",
     expiresAt: { $gt: new Date() }
   })
-    .select("-action")
+    .select("-action -actionHash")
     .sort({ createdAt: -1 })
     .lean();
 }
