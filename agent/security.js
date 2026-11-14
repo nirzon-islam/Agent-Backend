@@ -7,6 +7,41 @@ const ALLOWED_ACTIONS = new Set([
   "read", "create", "edit", "delete", "install", "test", "update"
 ]);
 
+
+const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
+
+function validateExecutableAction(action) {
+  if (!action || typeof action !== "object" || Array.isArray(action) ||
+      Object.getPrototypeOf(action) !== Object.prototype) {
+    throw new Error("Invalid executable action");
+  }
+  if (!EXECUTABLE_ACTION_TYPES.has(action.type)) {
+    throw new Error("Unsupported executable action type");
+  }
+  const keys = action.type === "create" || action.type === "edit"
+    ? ["type", "path", "content"]
+    : ["type", "path"];
+  if (Object.keys(action).some(key => !keys.includes(key)) ||
+      keys.some(key => !Object.prototype.hasOwnProperty.call(action, key))) {
+    throw new Error("Executable action has an invalid shape");
+  }
+  if (typeof action.path !== "string" || action.path.length > 300 ||
+      !/^languages\\/(?!\\.|.*\\/\\.)(?:[A-Za-z0-9_-]+\\/)*[A-Za-z0-9_-]+\\.(?:lang|js)$/.test(action.path) ||
+      action.path.split("/").some(part => ["..", ".", "node_modules", "secrets", "cache"].includes(part))) {
+    throw new Error("Executable action path is outside the language workspace");
+  }
+  if (action.type === "test" && !action.path.endsWith(".js")) {
+    throw new Error("Syntax test supports JavaScript files only");
+  }
+  if (action.type === "create" || action.type === "edit") {
+    if (typeof action.content !== "string" ||
+        Buffer.byteLength(action.content, "utf8") > 65536) {
+      throw new Error("Executable action content must be text up to 64 KiB");
+    }
+  }
+  return action;
+}
+
 function createRequestId() {
   return crypto.randomBytes(24).toString("hex");
 }
@@ -75,4 +110,4 @@ function verifyBridgeSecret(receivedSecret) {
   return crypto.timingSafeEqual(received, stored);
 }
 
-module.exports = { createRequestId, hashAction, safeHashEqual, checkActionPermission, verifyBridgeSecret };
+module.exports = { createRequestId, hashAction, safeHashEqual, checkActionPermission, verifyBridgeSecret, validateExecutableAction };
