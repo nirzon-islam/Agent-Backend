@@ -33,7 +33,13 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-app.use(express.json({ limit: "100kb" }));
+
+app.use(express.json({
+  limit: "100kb",
+  verify: (req, res, buf) => {
+    req.rawBody = Buffer.from(buf);
+  }
+}));
 
 app.get("/", (req, res) => {
   res.json({
