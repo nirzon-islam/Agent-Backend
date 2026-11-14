@@ -43,8 +43,9 @@ async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 *
     throw new Error("Missing or invalid approval information");
   }
 
-  validateExecutableAction(action);
-  if (!["read", "create", "edit", "test"].includes(action.type)) {
+  if (action.type === "plan") validateExecutablePlan(action);
+  else validateExecutableAction(action);
+  if (!["read", "create", "edit", "test", "plan"].includes(action.type)) {
     throw new Error("Unsupported action type for approval workflow");
   }
   if (!Number.isFinite(expiresInMs) || expiresInMs < 60 * 1000 || expiresInMs > 24 * 60 * 60 * 1000) {
