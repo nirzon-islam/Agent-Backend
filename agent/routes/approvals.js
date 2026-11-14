@@ -4,7 +4,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const router = express.Router();
-const Approval = require("../models/Approval");
+require("../approval");
+const Approval = mongoose.model("AgentApproval");
 const Task = require("../models/Task");
 
 const APPROVAL_ID_PATTERN = /^[a-f0-9]{48}$/i;
