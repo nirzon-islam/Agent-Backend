@@ -16,7 +16,10 @@ const { hashPassword } = require("./agent/auth/password");
 
 const authRoutes = require("./agent/routes/auth");
 const serviceAuth = require("./agent/middleware/serviceAuth");
+const authenticate = require("./agent/auth/authenticate");
+const requireOwner = require("./agent/middleware/requireOwner");
 const bridgeRoutes = require("./agent/routes/bridge");
+const taskRoutes = require("./agent/routes/tasks");
 
 const app = express();
 
@@ -38,7 +41,13 @@ app.use(cors({
     return callback(new Error("Origin not allowed"));
   },
   methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Agent-Timestamp",
+    "X-Agent-Nonce",
+    "X-Agent-Signature"
+  ]
 }));
 
 app.use(express.json({
@@ -51,7 +60,10 @@ app.use(express.json({
 // Authentication routes
 app.use("/api/auth", authRoutes);
 
-// Bridge routes
+// Owner-authenticated website task routes.
+app.use("/api/tasks", authenticate, requireOwner, taskRoutes);
+
+// Signed Railway Bridge routes.
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
 // One-time Owner Bootstrap
