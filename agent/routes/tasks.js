@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const router = express.Router();
 const Task = require("../models/Task");
 const { reconcileExpiredTasks } = require("../approval");
+const { planTask } = require("../planner");
 
 const ALLOWED_TYPES = new Set([
   "read",
@@ -37,40 +38,28 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Submit a new task.
+// Submit a website request. The AI plans it, but never executes it here.
 router.post("/", async (req, res) => {
   try {
-    const { type, description } = req.body;
-
-    if (typeof type !== "string" || !ALLOWED_TYPES.has(type)) {
-      return res.status(400).json({ success: false, message: "Invalid task type" });
+    const { description } = req.body || {};
+    if (typeof description !== "string" || description.trim().length < 3 || description.length > 2000) {
+      return res.status(400).json({ success: false, message: "Request must be 3-2000 characters" });
     }
-
-    if (typeof description !== "string" ||
-        description.trim().length < 3 ||
-        description.length > 5000) {
-      return res.status(400).json({ success: false, message: "Description must be 3-5000 characters" });
-    }
-
     const task = await Task.create({
-      taskId: crypto.randomUUID(),
-      requestedBy: String(req.user.id),
-      source: "website",
-      type,
-      description: description.trim(),
-      status: "pending"
+      taskId: crypto.randomUUID(), requestedBy: String(req.user.id), source: "website",
+      type: "read", description: description.trim(), status: "pending"
     });
-
-    return res.status(201).json({
-      success: true,
-      task: {
-        taskId: task.taskId,
-        type: task.type,
-        status: task.status,
-        description: task.description,
-        createdAt: task.createdAt
-      }
-    });
+    try {
+      const planning = await planTask(task.taskId);
+      return res.status(201).json({ success: true, task: {
+        taskId: task.taskId, description: task.description, status: planning.status,
+        actionType: planning.actionType, approvalId: planning.approvalId,
+        message: "AI plan created. Owner approval is required before execution."
+      }});
+    } catch (planningError) {
+      return res.status(202).json({ success: true, task: { taskId: task.taskId, description: task.description, status: "failed" },
+        message: "Request saved, but AI could not create a safe plan. Check task details and AI provider configuration." });
+    }
   } catch (error) {
     console.error("[Task Submit]", error.message);
     return res.status(500).json({ success: false, message: "Unable to submit task" });
