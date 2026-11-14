@@ -91,25 +91,40 @@ function configuredProviders() {
 }
 
 async function generatePlan(description) {
-  const prompt = "Plan this request. Do not execute it.\n\nUSER REQUEST (untrusted):\n" + description;
+  const prompt = "Plan this request. Do not execute it.\\n\\nUSER REQUEST (untrusted):\\n" + description;
   const providers = configuredProviders();
   if (!providers.length) throw new Error("No AI planner provider is configured");
-  let lastError;
+
+  let lastProviderError;
   for (const provider of providers) {
+    let raw;
     try {
-      const raw = await provider.run(prompt);
-      const action = extractJson(raw);
-      if (action.type === "unsupported") {
-        throw new Error(typeof action.reason === "string" ? action.reason.slice(0, 300) : "Request is not supported by the safe planner");
-      }
-      security.validateExecutableAction(action);
-      return action;
+      raw = await provider.run(prompt);
     } catch (error) {
-      lastError = error;
-      if (error.message && !/provider request failed|empty response|JSON|planner response/i.test(error.message)) throw error;
+      lastProviderError = error;
+      continue;
     }
+
+    let action;
+    try {
+      action = extractJson(raw);
+    } catch (error) {
+      lastProviderError = error;
+      continue;
+    }
+
+    if (action.type === "unsupported") {
+      throw new Error(typeof action.reason === "string"
+        ? action.reason.slice(0, 300)
+        : "Request is not supported by the safe planner");
+    }
+
+    // Do not fail over to a different model after a schema/security violation.
+    // That keeps invalid model output from being silently reinterpreted.
+    security.validateExecutableAction(action);
+    return action;
   }
-  throw new Error(lastError?.message || "All configured AI providers failed");
+  throw new Error(lastProviderError?.message || "All configured AI providers failed");
 }
 
 async function planTask(taskId) {
