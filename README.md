@@ -1,6 +1,7 @@
-🤖 Agent Backend
 
-A Secure AI-Powered Autonomous Coding Assistant for GoatBot Messenger
+# 🤖 Agent Backend
+
+### A Secure AI-Powered Autonomous Coding Assistant for GoatBot Messenger
 
 Agent Backend is an AI-powered assistant designed to manage, analyze, debug, and maintain GoatBot projects through a web-based interface and Facebook Messenger.
 
@@ -8,13 +9,13 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
 
 ---
 
-✨ Features
+## ✨ Features
 
-- 🌐 Web-Based AI Chat Interface
-- 💬 Facebook Messenger Integration
-- 🧠 Gemini AI — Primary AI
-- ⚡ Groq — First Fallback
-- ☁️ Cloudflare Workers AI — Additional Fallback
+- 🌐 **Web-Based AI Chat Interface**
+- 💬 **Facebook Messenger Integration**
+- 🧠 **Gemini AI** — Primary AI
+- ⚡ **Groq** — First Fallback
+- ☁️ **Cloudflare Workers AI** — Additional Fallback
 - 🔍 Automatic Code Analysis and Debugging
 - 🛠️ Command Creation and Editing
 - 📦 Command Installation and Deletion Management
@@ -26,8 +27,9 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
 
 ---
 
-🏗️ Architecture
+## 🏗️ Architecture
 
+```text
              USER
           /       \
      WEBSITE    MESSENGER
@@ -44,21 +46,23 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
        GOATBOT (RAILWAY)
               |
         PROJECT FILES
+```
 
 ---
 
-🧠 AI Providers
+## 🧠 AI Providers
 
-Provider| Purpose
-Gemini| Primary AI
-Groq| First Fallback
-Cloudflare Workers AI| Additional Fallback
+| Provider | Purpose |
+|---|---|
+| Gemini | Primary AI |
+| Groq | First Fallback |
+| Cloudflare Workers AI | Additional Fallback |
 
-Note: The project aims to use free API tiers. Availability and usage are subject to each provider's limits.
+**Note:** The project aims to use free API tiers. Availability and usage are subject to each provider's limits.
 
 ---
 
-🔐 Security
+## 🔐 Security
 
 Security is a core part of this project.
 
@@ -71,26 +75,27 @@ Security is a core part of this project.
 - Task and approval tracking.
 - Rollback support for recoverable changes.
 
-«The agent must never independently execute destructive or sensitive operations without authorization.»
+> **The agent must never independently execute destructive or sensitive operations without authorization.**
 
 ---
 
-☁️ Deployment
+## ☁️ Deployment
 
-Component| Platform
-Source Code| GitHub
-Agent Backend| Render
-Existing GoatBot| Railway
-Database| Free-Tier External Database
-AI Providers| Free API Tiers
+| Component | Platform |
+|---|---|
+| Source Code | GitHub |
+| Agent Backend | Render |
+| Existing GoatBot | Railway |
+| Database | Free-Tier External Database |
+| AI Providers | Free API Tiers |
 
 ---
 
-🚧 Development Status
+## 🚧 Development Status
 
-Current Status: Under Development
+**Current Status: Under Development**
 
-Development Roadmap
+### Development Roadmap
 
 - [x] Initial Configuration
 - [x] Security Foundation
@@ -106,7 +111,7 @@ Development Roadmap
 
 ---
 
-⚠️ Important Notes
+## ⚠️ Important Notes
 
 - This project follows a security-first approach.
 - Render Free services may sleep when inactive.
@@ -116,10 +121,10 @@ Development Roadmap
 
 ---
 
-📜 License
+## 📜 License
 
 License and distribution terms will be defined before public release.
 
 ---
 
-💜 Built for Secure, Controlled, AI-Powered GoatBot Management.
+### 💜 Built for Secure, Controlled, AI-Powered GoatBot Management.
