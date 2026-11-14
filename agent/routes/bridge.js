@@ -10,6 +10,7 @@ const Task = require("../models/Task");
 const security = require("../security");
 const { reconcileExpiredTasks } = require("../approval");
 const { planTask } = require("../planner");
+const BotAccountStatus = require("../models/BotAccountStatus");
 
 // Register the Approval model.
 require("../approval");
@@ -348,6 +349,28 @@ router.post("/result", async (req, res) => {
       success: false,
       message: "Unable to save task result"
     });
+  }
+});
+
+// Railway bot reports account/session health using the signed service bridge.
+router.post("/account-status", async (req, res) => {
+  try {
+    const state = typeof req.body.state === "string" ? req.body.state : "";
+    const allowed = new Set(["online", "logged_out", "checkpoint", "error"]);
+    const accountId = typeof req.body.accountId === "string" ? req.body.accountId.trim().slice(0, 128) : "";
+    const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 500) : "";
+    if (!allowed.has(state)) return res.status(400).json({ success: false, message: "Invalid account state" });
+    const now = new Date();
+    const record = await BotAccountStatus.findOneAndUpdate(
+      { key: "primary" },
+      { $set: { state, accountId: accountId || null, message: message || null, lastHeartbeatAt: now },
+        $setOnInsert: { key: "primary" } },
+      { new: true, upsert: true, runValidators: true }
+    ).lean();
+    return res.json({ success: true, receivedAt: record.lastHeartbeatAt });
+  } catch (error) {
+    console.error("[Bridge Account Status]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to save account status" });
   }
 });
 
