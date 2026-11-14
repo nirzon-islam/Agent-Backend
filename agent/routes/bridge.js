@@ -7,6 +7,7 @@ const router = express.Router();
 
 const Task = require("../models/Task");
 const security = require("../security");
+const { reconcileExpiredTasks } = require("../approval");
 
 // Register the Approval model.
 require("../approval");
@@ -32,6 +33,7 @@ router.post("/claim", async (req, res) => {
   let claimedTask = null;
 
   try {
+    await reconcileExpiredTasks();
     session = await mongoose.startSession();
     await session.withTransaction(async () => {
       const task = await Task.findOne({
