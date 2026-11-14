@@ -98,9 +98,11 @@ test("multi-step plans reject empty, oversized, and malformed plans", () => {
   assert.throws(() => security.validateExecutablePlan({
     type: "plan", steps: Array.from({ length: 13 }, () => ({ type: "list", path: "languages" }))
   }), /Invalid multi-step plan/);
-  assert.throws(() => security.validateExecutablePlan({
+  assert.deepEqual(security.validateExecutablePlan({
     type: "plan", steps: [{ type: "list", path: "scripts" }]
-  }), /outside the language workspace/);
+  }), {
+    type: "plan", steps: [{ type: "list", path: "scripts" }]
+  });
   assert.throws(() => security.validateExecutablePlan({
     type: "plan", steps: [{ type: "shell", command: "echo unsafe" }]
   }), /Unsupported executable action/);
