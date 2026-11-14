@@ -130,7 +130,8 @@ async function generatePlan(description) {
 
     // Do not fail over to a different model after a schema/security violation.
     // That keeps invalid model output from being silently reinterpreted.
-    security.validateExecutableAction(action);
+    if (action.type === "plan") security.validateExecutablePlan(action);
+    else security.validateExecutableAction(action);
     return action;
   }
   throw new Error(lastProviderError?.name === "TimeoutError" || lastProviderError?.name === "AbortError"
