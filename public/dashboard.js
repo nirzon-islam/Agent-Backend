@@ -11,6 +11,26 @@
   }
   function safe(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch])); }
   function showApp(yes) { $("loginPanel").hidden = yes; $("appPanel").hidden = !yes; $("connection").textContent = yes ? "Authenticated" : "Offline"; }
+  let previousAccountState = "";
+  async function refreshAccountStatus() {
+    const data = await api("/api/account/status");
+    const account = data.account || {};
+    const state = account.state || "unknown";
+    const labels = { online: "Online", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Not connected" };
+    $("accountState").textContent = labels[state] || state;
+    $("accountState").className = "status " + (state === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(state) ? "state-bad" : ""));
+    $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
+    $("accountId").textContent = account.accountId || "Not reported";
+    $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
+    $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
+    if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
+    previousAccountState = state;
+  }
+  $("enableNotifications").addEventListener("click", async () => {
+    if (!("Notification" in window)) { $("notificationMessage").textContent = "Browser notifications are not supported."; return; }
+    const permission = await Notification.requestPermission();
+    $("notificationMessage").textContent = permission === "granted" ? "Browser alerts enabled." : "Notification permission was not granted.";
+  });
   $("loginForm").addEventListener("submit", async event => {
     event.preventDefault(); $("loginMessage").textContent = "Signing in…";
     try {
@@ -33,6 +53,7 @@
     try {
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
       renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
+      await refreshAccountStatus();
       $("connection").textContent = "Connected";
     } catch(error) {
       if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
