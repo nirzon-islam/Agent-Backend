@@ -1,139 +1,40 @@
 "use strict";
 
 const express = require("express");
-const mongoose = require("mongoose");
-
 const router = express.Router();
-require("../approval");
-const Approval = mongoose.model("AgentApproval");
-const Task = require("../models/Task");
+const { getPending, decideApproval } = require("../approval");
 
 const APPROVAL_ID_PATTERN = /^[a-f0-9]{48}$/i;
 
-// List pending, unexpired approvals. Never expose the executable action here.
 router.get("/", async (req, res) => {
   try {
-    const approvals = await Approval.find({
-      status: "pending",
-      expiresAt: { $gt: new Date() }
-    })
-      .select("-action -actionHash -__v")
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const approvals = await getPending();
     return res.json({ success: true, approvals });
   } catch (error) {
     console.error("[Approval List]", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Unable to retrieve approvals"
-    });
+    return res.status(500).json({ success: false, message: "Unable to retrieve approvals" });
   }
 });
 
 async function processApproval(req, res, status) {
   const { approvalId } = req.params;
-
   if (typeof approvalId !== "string" || !APPROVAL_ID_PATTERN.test(approvalId)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid approval ID"
-    });
+    return res.status(400).json({ success: false, message: "Invalid approval ID" });
   }
 
-  let session;
-
   try {
-    session = await mongoose.startSession();
-    let response;
-
-    await session.withTransaction(async () => {
-      const approval = await Approval.findOneAndUpdate(
-        {
-          approvalId,
-          status: "pending",
-          expiresAt: { $gt: new Date() }
-        },
-        {
-          $set: {
-            status,
-            approvedBy: req.user.id
-          }
-        },
-        {
-          new: true,
-          session
-        }
-      ).select("approvalId taskId status").lean();
-
-      if (!approval) {
-        const error = new Error("APPROVAL_NOT_AVAILABLE");
-        throw error;
-      }
-
-      const task = await Task.findOneAndUpdate(
-        {
-          taskId: approval.taskId,
-          status: { $in: ["pending", "awaiting_approval"] },
-          $or: [
-            { approvalId: null },
-            { approvalId: approval.approvalId }
-          ]
-        },
-        {
-          $set: {
-            status: status === "approved" ? "approved" : "rejected",
-            approvalId: approval.approvalId
-          }
-        },
-        {
-          new: true,
-          session
-        }
-      ).select("taskId status").lean();
-
-      if (!task) {
-        throw new Error("TASK_STATE_CONFLICT");
-      }
-
-      response = {
-        approvalId: approval.approvalId,
-        taskId: task.taskId,
-        status: approval.status,
-        taskStatus: task.status
-      };
-    });
-
-    return res.json({ success: true, approval: response });
+    const approval = await decideApproval(approvalId, req.user.id, status);
+    return res.json({ success: true, approval });
   } catch (error) {
-    if (
-      error.message === "APPROVAL_NOT_AVAILABLE" ||
-      error.message === "TASK_STATE_CONFLICT"
-    ) {
-      return res.status(409).json({
-        success: false,
-        message: error.message
-      });
+    if (["APPROVAL_NOT_AVAILABLE", "TASK_STATE_CONFLICT"].includes(error.message)) {
+      return res.status(409).json({ success: false, message: error.message });
     }
-
     console.error("[Approval Process]", error.message);
-    return res.status(503).json({
-      success: false,
-      message: "Unable to process approval"
-    });
-  } finally {
-    if (session) {
-      await session.endSession();
-    }
+    return res.status(503).json({ success: false, message: "Unable to process approval" });
   }
 }
 
-router.post("/:approvalId/approve", (req, res) =>
-  processApproval(req, res, "approved")
-);
-
-router.post("/:approvalId/reject", (req, res) =>
-  processApproval(req, res, "rejected")
-);
+router.post("/:approvalId/approve", (req, res) => processApproval(req, res, "approved"));
+router.post("/:approvalId/reject", (req, res) => processApproval(req, res, "rejected"));
 
 module.exports = router;
