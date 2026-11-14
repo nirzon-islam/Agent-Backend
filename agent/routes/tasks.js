@@ -1,4 +1,3 @@
-
 "use strict";
 
 const express = require("express");
@@ -18,30 +17,39 @@ const ALLOWED_TYPES = new Set([
   "update"
 ]);
 
+// List recent tasks for the authenticated Owner dashboard.
+router.get("/", async (req, res) => {
+  try {
+    await reconcileExpiredTasks();
+    const requestedLimit = Number(req.query.limit);
+    const limit = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 30;
+    const tasks = await Task.find({})
+      .select("taskId requestedBy source type description status approvalId result error createdAt updatedAt completedAt")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    return res.json({ success: true, tasks });
+  } catch (error) {
+    console.error("[Task List]", error.message);
+    return res.status(500).json({ success: false, message: "Unable to retrieve tasks" });
+  }
+});
+
 // Submit a new task.
 router.post("/", async (req, res) => {
   try {
     const { type, description } = req.body;
 
-    if (
-      typeof type !== "string" ||
-      !ALLOWED_TYPES.has(type)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid task type"
-      });
+    if (typeof type !== "string" || !ALLOWED_TYPES.has(type)) {
+      return res.status(400).json({ success: false, message: "Invalid task type" });
     }
 
-    if (
-      typeof description !== "string" ||
-      description.trim().length < 3 ||
-      description.length > 5000
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Description must be 3-5000 characters"
-      });
+    if (typeof description !== "string" ||
+        description.trim().length < 3 ||
+        description.length > 5000) {
+      return res.status(400).json({ success: false, message: "Description must be 3-5000 characters" });
     }
 
     const task = await Task.create({
@@ -65,11 +73,7 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error("[Task Submit]", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to submit task"
-    });
+    return res.status(500).json({ success: false, message: "Unable to submit task" });
   }
 });
 
@@ -80,28 +84,16 @@ router.get("/:taskId", async (req, res) => {
     const task = await Task.findOne({
       taskId: req.params.taskId,
       requestedBy: String(req.user.id)
-    })
-      .select("-__v")
-      .lean();
+    }).select("-__v").lean();
 
     if (!task) {
-      return res.status(404).json({
-        success: false,
-        message: "Task not found"
-      });
+      return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    return res.json({
-      success: true,
-      task
-    });
+    return res.json({ success: true, task });
   } catch (error) {
     console.error("[Task Status]", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Unable to retrieve task"
-    });
+    return res.status(500).json({ success: false, message: "Unable to retrieve task" });
   }
 });
 
