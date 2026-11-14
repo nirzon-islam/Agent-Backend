@@ -17,8 +17,8 @@ require("../approval");
 const Approval = mongoose.model("AgentApproval");
 
 
-// Messenger requests are stored as non-executable planning requests.
-// No action is generated or executed by this endpoint.
+// Messenger requests are planned into a validated action and sent to Owner approval.
+// This endpoint never executes an action.
 router.post("/requests", async (req, res) => {
   try {
     const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
