@@ -14,6 +14,59 @@ require("../approval");
 
 const Approval = mongoose.model("AgentApproval");
 
+// Railway Bridge polls for approved task IDs. Action payloads remain hidden
+// until the single-use /claim endpoint validates and consumes the approval.
+router.post("/queue", async (req, res) => {
+  try {
+    await reconcileExpiredTasks();
+
+    const requestedLimit = Number(req.body && req.body.limit);
+    const limit = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 10)
+      : 5;
+
+    const approved = await Task.find({
+      status: "approved",
+      approvalId: { $ne: null }
+    })
+      .select("taskId approvalId type createdAt")
+      .sort({ createdAt: 1 })
+      .limit(limit)
+      .lean();
+
+    if (!approved.length) {
+      return res.json({ success: true, tasks: [] });
+    }
+
+    const approvalIds = approved.map(task => task.approvalId);
+    const validApprovals = await Approval.find({
+      approvalId: { $in: approvalIds },
+      status: "approved",
+      expiresAt: { $gt: new Date() }
+    }).select("approvalId taskId").lean();
+
+    const validSet = new Set(
+      validApprovals.map(item => `${item.approvalId}:${item.taskId}`)
+    );
+
+    const tasks = approved
+      .filter(task => validSet.has(`${task.approvalId}:${task.taskId}`))
+      .map(task => ({
+        taskId: task.taskId,
+        type: task.type,
+        createdAt: task.createdAt
+      }));
+
+    return res.json({ success: true, tasks });
+  } catch (error) {
+    console.error("[Bridge Queue]", error.message);
+    return res.status(503).json({
+      success: false,
+      message: "Unable to retrieve approved tasks"
+    });
+  }
+});
+
 // Railway Bridge claims an approved task.
 router.post("/claim", async (req, res) => {
   const { taskId } = req.body;
