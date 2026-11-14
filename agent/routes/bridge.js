@@ -59,6 +59,29 @@ router.post("/requests", async (req, res) => {
   }
 });
 
+// Sender-scoped task status for the Messenger command.
+router.post("/status", async (req, res) => {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    const taskId = typeof req.body.taskId === "string" ? req.body.taskId.trim() : "";
+    if (!senderId || !config.bridge.allowedSenderIds.includes(senderId) ||
+        !taskId || taskId.length > 128) {
+      return res.status(400).json({ success: false, message: "Invalid status request" });
+    }
+    await reconcileExpiredTasks();
+    const task = await Task.findOne({
+      taskId,
+      requestedBy: "messenger:" + senderId,
+      source: "messenger"
+    }).select("taskId type status error result createdAt updatedAt completedAt").lean();
+    if (!task) return res.status(404).json({ success: false, message: "Task not found" });
+    return res.json({ success: true, task });
+  } catch (error) {
+    console.error("[Bridge Status]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to retrieve task status" });
+  }
+});
+
 // Railway Bridge polls for approved task IDs. Action payloads remain hidden
 // until the single-use /claim endpoint validates and consumes the approval.
 router.post("/queue", async (req, res) => {
