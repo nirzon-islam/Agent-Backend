@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>Agent Control Center</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <script defer src="/dashboard.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div><p class="eyebrow">NIRZON • SECURE AUTOMATION</p><h1>Agent Control Center</h1><p class="muted">Messenger + Web dashboard • Owner approval required</p></div>
+      <span id="connection" class="pill">Offline</span>
+    </header>
+    <section id="loginPanel" class="panel login">
+      <h2>Owner Login</h2><p class="muted">Sign in with your Agent Backend Owner account.</p>
+      <form id="loginForm">
+        <label>Username<input id="username" autocomplete="username" required maxlength="100"></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="loginMessage" class="message" role="status"></p>
+    </section>
+    <section id="appPanel" hidden>
+      <div class="toolbar"><h2>Overview</h2><button id="refreshBtn" class="secondary">Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div>
+      <div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
+      <section class="panel">
+        <div class="sectionHead"><h2>New Agent Request</h2><span class="muted">AI plans first • Owner approves</span></div>
+        <form id="requestForm" class="requestForm">
+          <label for="requestDescription">What should the Agent do?</label>
+          <textarea id="requestDescription" rows="4" minlength="3" maxlength="2000" placeholder="Describe the task in natural language…" required></textarea>
+          <div class="actions"><button id="submitRequest" type="submit">Ask AI to plan</button><span id="requestMessage" class="muted" role="status"></span></div>
+        </form>
+      </section>
+      <section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
+      <section class="panel"><div class="sectionHead"><h2>Recent Tasks</h2><span class="muted">Messenger and website activity</span></div><div id="tasks" class="items"><p class="muted">No tasks loaded.</p></div></section>
+    </section>
+    <footer>Agent Backend • Actions remain blocked until Owner approval.</footer>
+  </main>
+</body>
+</html>

@@ -1,17 +1,139 @@
 
 "use strict";
 
+const config = require("../config");
 const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
 
 const Task = require("../models/Task");
 const security = require("../security");
+const { reconcileExpiredTasks } = require("../approval");
+const { planTask } = require("../planner");
 
 // Register the Approval model.
 require("../approval");
 
 const Approval = mongoose.model("AgentApproval");
+
+
+// Messenger requests are planned into a validated action and sent to Owner approval.
+// This endpoint never executes an action.
+router.post("/requests", async (req, res) => {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    const description = typeof req.body.description === "string" ? req.body.description.trim() : "";
+
+    if (!senderId || senderId.length > 128 || !config.bridge.allowedSenderIds.includes(senderId)) {
+      return res.status(403).json({ success: false, message: "Sender is not allowed" });
+    }
+    if (description.length < 3 || description.length > 2000) {
+      return res.status(400).json({ success: false, message: "Request must be 3-2000 characters" });
+    }
+
+    const task = await Task.create({
+      taskId: require("crypto").randomUUID(),
+      requestedBy: `messenger:${senderId}`,
+      source: "messenger",
+      type: "read",
+      description: `[Messenger request; planning required] ${description}`,
+      status: "pending"
+    });
+
+    try {
+      const planning = await planTask(task.taskId);
+      return res.status(201).json({
+        success: true,
+        task: { taskId: task.taskId, status: planning.status, source: task.source, actionType: planning.actionType, approvalId: planning.approvalId }
+      });
+    } catch (planningError) {
+      return res.status(202).json({
+        success: true,
+        task: { taskId: task.taskId, status: "failed", source: task.source },
+        message: "Request was saved but could not be planned. Check AI provider configuration and task details."
+      });
+    }
+  } catch (error) {
+    console.error("[Bridge Request]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to submit Messenger request" });
+  }
+});
+
+// Sender-scoped task status for the Messenger command.
+router.post("/status", async (req, res) => {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    const taskId = typeof req.body.taskId === "string" ? req.body.taskId.trim() : "";
+    if (!senderId || !config.bridge.allowedSenderIds.includes(senderId) ||
+        !taskId || taskId.length > 128) {
+      return res.status(400).json({ success: false, message: "Invalid status request" });
+    }
+    await reconcileExpiredTasks();
+    const task = await Task.findOne({
+      taskId,
+      requestedBy: "messenger:" + senderId,
+      source: "messenger"
+    }).select("taskId type status error result createdAt updatedAt completedAt").lean();
+    if (!task) return res.status(404).json({ success: false, message: "Task not found" });
+    return res.json({ success: true, task });
+  } catch (error) {
+    console.error("[Bridge Status]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to retrieve task status" });
+  }
+});
+
+// Railway Bridge polls for approved task IDs. Action payloads remain hidden
+// until the single-use /claim endpoint validates and consumes the approval.
+router.post("/queue", async (req, res) => {
+  try {
+    await reconcileExpiredTasks();
+
+    const requestedLimit = Number(req.body && req.body.limit);
+    const limit = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 10)
+      : 5;
+
+    const approved = await Task.find({
+      status: "approved",
+      approvalId: { $ne: null }
+    })
+      .select("taskId approvalId type createdAt")
+      .sort({ createdAt: 1 })
+      .limit(limit)
+      .lean();
+
+    if (!approved.length) {
+      return res.json({ success: true, tasks: [] });
+    }
+
+    const approvalIds = approved.map(task => task.approvalId);
+    const validApprovals = await Approval.find({
+      approvalId: { $in: approvalIds },
+      status: "approved",
+      expiresAt: { $gt: new Date() }
+    }).select("approvalId taskId").lean();
+
+    const validSet = new Set(
+      validApprovals.map(item => `${item.approvalId}:${item.taskId}`)
+    );
+
+    const tasks = approved
+      .filter(task => validSet.has(`${task.approvalId}:${task.taskId}`))
+      .map(task => ({
+        taskId: task.taskId,
+        type: task.type,
+        createdAt: task.createdAt
+      }));
+
+    return res.json({ success: true, tasks });
+  } catch (error) {
+    console.error("[Bridge Queue]", error.message);
+    return res.status(503).json({
+      success: false,
+      message: "Unable to retrieve approved tasks"
+    });
+  }
+});
 
 // Railway Bridge claims an approved task.
 router.post("/claim", async (req, res) => {
@@ -28,10 +150,12 @@ router.post("/claim", async (req, res) => {
     });
   }
 
-  const session = await mongoose.startSession();
+  let session;
   let claimedTask = null;
 
   try {
+    await reconcileExpiredTasks();
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
       const task = await Task.findOne({
         taskId,
@@ -56,7 +180,7 @@ router.post("/claim", async (req, res) => {
 
       const actualHash = security.hashAction(approval.action);
 
-      if (actualHash !== approval.actionHash) {
+      if (!security.safeHashEqual(actualHash, approval.actionHash)) {
         throw new Error("ACTION_HASH_MISMATCH");
       }
 
@@ -143,7 +267,7 @@ router.post("/claim", async (req, res) => {
     });
 
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 

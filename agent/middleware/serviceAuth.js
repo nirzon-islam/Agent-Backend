@@ -29,7 +29,7 @@ async function serviceAuth(req, res, next) {
     const nonce = req.get("x-agent-nonce");
     const signature = req.get("x-agent-signature");
 
-    if (!secret) {
+    if (!config.bridge.enabled || !secret) {
       return res.status(503).json({
         success: false,
         message: "Bridge authentication not configured"
