@@ -318,7 +318,7 @@ router.post("/result", async (req, res) => {
       {
         $set: {
           status: success ? "completed" : "failed",
-          result: result ? result.slice(0, 10000) : null,
+          result: result ? result.slice(0, 50000) : null,
           error: success ? null : (error || "Execution failed").slice(0, 2000),
           completedAt: new Date()
         }
