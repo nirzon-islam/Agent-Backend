@@ -26,7 +26,7 @@ function validateExecutableAction(action) {
     throw new Error("Executable action has an invalid shape");
   }
   if (typeof action.path !== "string" || action.path.length > 300 ||
-      !/^languages\\/(?!\\.|.*\\/\\.)(?:[A-Za-z0-9_-]+\\/)*[A-Za-z0-9_-]+\\.(?:lang|js)$/.test(action.path) ||
+      !/^languages\/(?!\.|.*\/\.)(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:lang|js)$/.test(action.path) ||
       action.path.split("/").some(part => ["..", ".", "node_modules", "secrets", "cache"].includes(part))) {
     throw new Error("Executable action path is outside the language workspace");
   }
