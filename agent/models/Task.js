@@ -25,7 +25,7 @@ const taskSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["read", "create", "edit", "delete", "install", "test", "update"],
+      enum: ["read", "create", "edit", "delete", "install", "test", "update", "plan"],
       required: true
     },
 

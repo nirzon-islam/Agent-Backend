@@ -9,6 +9,35 @@ const ALLOWED_ACTIONS = new Set([
 
 
 const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
+const MAX_PLAN_STEPS = 12;
+
+function validateWorkspaceDirectory(value) {
+  return typeof value === "string" && value.length <= 200 &&
+    /^languages(?:\/[A-Za-z0-9_-]+)*$/.test(value) &&
+    !value.split("/").some(part => [".", "..", "node_modules", "secrets", "cache"].includes(part));
+}
+
+function validateExecutablePlan(plan) {
+  if (!plan || typeof plan !== "object" || Array.isArray(plan) || plan.type !== "plan" ||
+      Object.keys(plan).some(key => !["type", "steps", "summary"].includes(key)) ||
+      !Array.isArray(plan.steps) || plan.steps.length < 1 || plan.steps.length > MAX_PLAN_STEPS) {
+    throw new Error("Invalid multi-step plan");
+  }
+  if (plan.summary !== undefined && (typeof plan.summary !== "string" || plan.summary.length > 500)) {
+    throw new Error("Invalid plan summary");
+  }
+  for (const step of plan.steps) {
+    if (!step || typeof step !== "object" || Array.isArray(step)) throw new Error("Invalid plan step");
+    if (step.type === "list" || step.type === "readMany") {
+      if (Object.keys(step).some(key => !["type", "path"].includes(key)) || !validateWorkspaceDirectory(step.path)) {
+        throw new Error("Plan directory is outside the language workspace");
+      }
+    } else {
+      validateExecutableAction(step);
+    }
+  }
+  return plan;
+}
 
 function validateExecutableAction(action) {
   if (!action || typeof action !== "object" || Array.isArray(action) ||
@@ -110,4 +139,4 @@ function verifyBridgeSecret(receivedSecret) {
   return crypto.timingSafeEqual(received, stored);
 }
 
-module.exports = { createRequestId, hashAction, safeHashEqual, checkActionPermission, verifyBridgeSecret, validateExecutableAction };
+module.exports = { createRequestId, hashAction, safeHashEqual, checkActionPermission, verifyBridgeSecret, validateExecutableAction, validateExecutablePlan };
