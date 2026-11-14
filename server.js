@@ -22,6 +22,7 @@ const requireOwner = require("./agent/middleware/requireOwner");
 const bridgeRoutes = require("./agent/routes/bridge");
 const taskRoutes = require("./agent/routes/tasks");
 const approvalRoutes = require("./agent/routes/approvals");
+const accountStatusRoutes = require("./agent/routes/accountStatus");
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use(express.static(path.join(__dirname, "public"), {
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", authenticate, requireOwner, taskRoutes);
 app.use("/api/approvals", authenticate, requireOwner, approvalRoutes);
+app.use("/api/account/status", authenticate, requireOwner, accountStatusRoutes);
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
 async function bootstrapOwner() {
