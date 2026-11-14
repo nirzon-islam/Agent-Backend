@@ -8,8 +8,7 @@ const sessionSchema = new mongoose.Schema(
     tokenHash: {
       type: String,
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
 
     userId: {
@@ -20,8 +19,7 @@ const sessionSchema = new mongoose.Schema(
 
     expiresAt: {
       type: Date,
-      required: true,
-      index: true
+      required: true
     },
 
     revokedAt: {
@@ -41,6 +39,7 @@ const sessionSchema = new mongoose.Schema(
   }
 );
 
+// Automatically expire old sessions.
 sessionSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
