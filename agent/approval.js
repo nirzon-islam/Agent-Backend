@@ -2,7 +2,7 @@
 
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { hashAction, validateExecutableAction } = require("./security");
+const { hashAction, validateExecutableAction, validateExecutablePlan } = require("./security");
 const Task = require("./models/Task");
 
 const approvalSchema = new mongoose.Schema({
