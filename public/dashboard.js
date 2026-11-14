@@ -91,5 +91,5 @@
   });
   $("refreshBtn").addEventListener("click", refresh);
   $("logoutBtn").addEventListener("click", () => { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); });
-  if (token) { showApp(true); refresh(); } else showApp(false);
+  if (token) { showApp(true); refresh(); setInterval(() => { if (token && !document.hidden) refresh(); }, 15000); } else showApp(false);
 })();
