@@ -41,9 +41,10 @@ async function processApproval(req, res, status) {
     });
   }
 
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     let response;
 
     await session.withTransaction(async () => {
@@ -121,7 +122,9 @@ async function processApproval(req, res, status) {
       message: "Unable to process approval"
     });
   } finally {
-    await session.endSession();
+    if (session) {
+      await session.endSession();
+    }
   }
 }
 
