@@ -1,5 +1,13 @@
 "use strict";
 
+const PLANNER_TIMEOUT_MS = 90000;
+
+function providerError(provider, response, data) {
+  const detail = data?.error?.message || data?.message || data?.errors?.[0]?.message;
+  return new Error(provider + " planner request failed (" + response.status + ")" +
+    (detail ? ": " + String(detail).slice(0, 500) : ""));
+}
+
 const config = require("./config");
 const security = require("./security");
 const Task = require("./models/Task");
@@ -35,10 +43,10 @@ async function requestGemini(prompt, provider) {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 8192 }
     }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error("Gemini planner request failed (" + response.status + ")");
+  if (!response.ok) throw providerError("Gemini", response, data);
   return data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
 }
 
@@ -53,10 +61,10 @@ async function requestOpenAICompatible(url, apiKey, model, prompt, providerName)
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }]
     }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(providerName + " planner request failed (" + response.status + ")");
+  if (!response.ok) throw providerError(providerName, response, data);
   return data.choices?.[0]?.message?.content || "";
 }
 
@@ -72,10 +80,10 @@ async function requestCloudflare(prompt, provider) {
       temperature: 0.1,
       max_tokens: 8192
     }),
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.success === false) throw new Error("Cloudflare planner request failed (" + response.status + ")");
+  if (!response.ok || data.success === false) throw providerError("Cloudflare", response, data);
   return data.result?.response || data.result?.choices?.[0]?.message?.content || "";
 }
 
@@ -102,6 +110,7 @@ async function generatePlan(description) {
       raw = await provider.run(prompt);
     } catch (error) {
       lastProviderError = error;
+      console.error("[Planner] " + provider.name + " failed: " + String(error.message || error).slice(0, 700));
       continue;
     }
 
@@ -124,7 +133,9 @@ async function generatePlan(description) {
     security.validateExecutableAction(action);
     return action;
   }
-  throw new Error(lastProviderError?.message || "All configured AI providers failed");
+  throw new Error(lastProviderError?.name === "TimeoutError" || lastProviderError?.name === "AbortError"
+    ? "AI planner timed out after " + Math.round(PLANNER_TIMEOUT_MS / 1000) + " seconds. Check provider availability and try again."
+    : (lastProviderError?.message || "All configured AI providers failed"));
 }
 
 async function planTask(taskId) {
