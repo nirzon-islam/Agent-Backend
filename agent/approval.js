@@ -158,9 +158,43 @@ async function consume(approvalId, taskId, expectedAction) {
   return result.action;
 }
 
+async function reconcileExpiredTasks() {
+  const now = new Date();
+  const candidates = await Task.find({
+    status: { $in: ["awaiting_approval", "approved"] },
+    approvalId: { $ne: null }
+  }).select("taskId approvalId status").limit(200).lean();
+
+  for (const task of candidates) {
+    const validApproval = await Approval.exists({
+      approvalId: task.approvalId,
+      taskId: task.taskId,
+      status: { $in: ["pending", "approved"] },
+      expiresAt: { $gt: now }
+    });
+
+    if (!validApproval) {
+      await Task.findOneAndUpdate({
+        taskId: task.taskId,
+        approvalId: task.approvalId,
+        status: task.status
+      }, {
+        $set: {
+          status: "cancelled",
+          error: "Approval expired or is no longer available"
+        }
+      });
+    }
+  }
+}
+
 async function getPending() {
+  await reconcileExpiredTasks();
   return Approval.find({ status: "pending", expiresAt: { $gt: new Date() } })
     .select("-action -actionHash -__v").sort({ createdAt: -1 }).lean();
 }
 
-module.exports = { requestApproval, decideApproval, approve, reject, consume, getPending };
+module.exports = {
+  requestApproval, decideApproval, approve, reject, consume,
+  getPending, reconcileExpiredTasks
+};
