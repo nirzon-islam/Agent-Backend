@@ -17,20 +17,6 @@ const ALLOWED_TYPES = new Set([
   "update"
 ]);
 
-// Fail closed: a future login middleware must set req.user.
-function requireUser(req, res, next) {
-  if (!req.user || !req.user.id) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required"
-    });
-  }
-
-  next();
-}
-
-router.use(requireUser);
-
 // Submit a new task.
 router.post("/", async (req, res) => {
   try {
