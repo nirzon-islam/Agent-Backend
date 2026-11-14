@@ -9,6 +9,7 @@ const router = express.Router();
 const Task = require("../models/Task");
 const security = require("../security");
 const { reconcileExpiredTasks } = require("../approval");
+const { planTask } = require("../planner");
 
 // Register the Approval model.
 require("../approval");
@@ -39,10 +40,19 @@ router.post("/requests", async (req, res) => {
       status: "pending"
     });
 
-    return res.status(201).json({
-      success: true,
-      task: { taskId: task.taskId, status: task.status, source: task.source }
-    });
+    try {
+      const planning = await planTask(task.taskId);
+      return res.status(201).json({
+        success: true,
+        task: { taskId: task.taskId, status: planning.status, source: task.source, actionType: planning.actionType, approvalId: planning.approvalId }
+      });
+    } catch (planningError) {
+      return res.status(202).json({
+        success: true,
+        task: { taskId: task.taskId, status: "failed", source: task.source },
+        message: "Request was saved but could not be planned. Check AI provider configuration and task details."
+      });
+    }
   } catch (error) {
     console.error("[Bridge Request]", error.message);
     return res.status(503).json({ success: false, message: "Unable to submit Messenger request" });
