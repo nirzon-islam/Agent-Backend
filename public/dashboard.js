@@ -39,6 +39,29 @@
       $("connection").textContent = "Error"; $("loginMessage").textContent = error.message;
     }
   }
+  $("requestForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = $("submitRequest");
+    const description = $("requestDescription").value.trim();
+    if (description.length < 3) return;
+    button.disabled = true;
+    $("requestMessage").textContent = "AI is planning your request…";
+    try {
+      const response = await api("/api/tasks/", {
+        method: "POST",
+        body: JSON.stringify({ description })
+      });
+      $("requestDescription").value = "";
+      $("requestMessage").textContent = response.task?.status === "awaiting_approval"
+        ? "AI plan ready — sent to your Approval Queue."
+        : (response.message || "Request received.");
+      await refresh();
+    } catch (error) {
+      $("requestMessage").textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
   $("approvals").addEventListener("click", async event => {
     const button = event.target.closest("button[data-action]"); if (!button) return;
     button.disabled = true;
