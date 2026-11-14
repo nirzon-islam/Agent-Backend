@@ -73,10 +73,17 @@ async function processApproval(req, res, status) {
       const task = await Task.findOneAndUpdate(
         {
           taskId: approval.taskId,
-          status: { $in: ["pending", "awaiting_approval"] }
+          status: { $in: ["pending", "awaiting_approval"] },
+          $or: [
+            { approvalId: null },
+            { approvalId: approval.approvalId }
+          ]
         },
         {
-          $set: { status: status === "approved" ? "approved" : "rejected" }
+          $set: {
+            status: status === "approved" ? "approved" : "rejected",
+            approvalId: approval.approvalId
+          }
         },
         {
           new: true,
