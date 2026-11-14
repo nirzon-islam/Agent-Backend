@@ -1,6 +1,7 @@
 
 "use strict";
 
+const config = require("../config");
 const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
@@ -13,6 +14,40 @@ const { reconcileExpiredTasks } = require("../approval");
 require("../approval");
 
 const Approval = mongoose.model("AgentApproval");
+
+
+// Messenger requests are stored as non-executable planning requests.
+// No action is generated or executed by this endpoint.
+router.post("/requests", async (req, res) => {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    const description = typeof req.body.description === "string" ? req.body.description.trim() : "";
+
+    if (!senderId || senderId.length > 128 || !config.bridge.allowedSenderIds.includes(senderId)) {
+      return res.status(403).json({ success: false, message: "Sender is not allowed" });
+    }
+    if (description.length < 3 || description.length > 2000) {
+      return res.status(400).json({ success: false, message: "Request must be 3-2000 characters" });
+    }
+
+    const task = await Task.create({
+      taskId: require("crypto").randomUUID(),
+      requestedBy: `messenger:${senderId}`,
+      source: "messenger",
+      type: "read",
+      description: `[Messenger request; planning required] ${description}`,
+      status: "pending"
+    });
+
+    return res.status(201).json({
+      success: true,
+      task: { taskId: task.taskId, status: task.status, source: task.source }
+    });
+  } catch (error) {
+    console.error("[Bridge Request]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to submit Messenger request" });
+  }
+});
 
 // Railway Bridge polls for approved task IDs. Action payloads remain hidden
 // until the single-use /claim endpoint validates and consumes the approval.
