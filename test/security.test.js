@@ -75,3 +75,45 @@ test("executable action schema matches the restricted Railway executor", () => {
     type: "test", path: "languages/file.lang"
   }), /JavaScript files/);
 });
+
+
+test("multi-step plans accept bounded read-only and file actions", () => {
+  const plan = {
+    type: "plan",
+    summary: "Inspect language files",
+    steps: [
+      { type: "list", path: "languages" },
+      { type: "readMany", path: "languages" },
+      { type: "read", path: "languages/bn.lang" },
+      { type: "edit", path: "languages/bn.lang", content: "updated" }
+    ]
+  };
+  assert.equal(security.validateExecutablePlan(plan), plan);
+});
+
+test("multi-step plans reject empty, oversized, and malformed plans", () => {
+  assert.throws(() => security.validateExecutablePlan({ type: "plan", steps: [] }), /Invalid multi-step plan/);
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan", steps: Array.from({ length: 13 }, () => ({ type: "list", path: "languages" }))
+  }), /Invalid multi-step plan/);
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan", steps: [{ type: "list", path: "scripts" }]
+  }), /outside the language workspace/);
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan", steps: [{ type: "shell", command: "echo unsafe" }]
+  }), /Unsupported executable action/);
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan", summary: "x".repeat(501), steps: [{ type: "list", path: "languages" }]
+  }), /Invalid plan summary/);
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan", steps: [{ type: "read", path: "languages/bn.lang", extra: true }]
+  }), /invalid shape/);
+});
+
+test("multi-step plans reject unknown top-level fields", () => {
+  assert.throws(() => security.validateExecutablePlan({
+    type: "plan",
+    steps: [{ type: "list", path: "languages" }],
+    executeImmediately: true
+  }), /Invalid multi-step plan/);
+});
