@@ -26,6 +26,14 @@
     <section id="appPanel" hidden>
       <div class="toolbar"><h2>Overview</h2><button id="refreshBtn" class="secondary">Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div>
       <div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
+      <section class="panel">
+        <div class="sectionHead"><h2>New Agent Request</h2><span class="muted">AI plans first • Owner approves</span></div>
+        <form id="requestForm" class="requestForm">
+          <label for="requestDescription">What should the Agent do?</label>
+          <textarea id="requestDescription" rows="4" minlength="3" maxlength="2000" placeholder="Describe the task in natural language…" required></textarea>
+          <div class="actions"><button id="submitRequest" type="submit">Ask AI to plan</button><span id="requestMessage" class="muted" role="status"></span></div>
+        </form>
+      </section>
       <section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
       <section class="panel"><div class="sectionHead"><h2>Recent Tasks</h2><span class="muted">Messenger and website activity</span></div><div id="tasks" class="items"><p class="muted">No tasks loaded.</p></div></section>
     </section>
