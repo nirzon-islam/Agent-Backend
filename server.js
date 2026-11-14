@@ -41,6 +41,12 @@ app.use(express.json({
   }
 }));
 
+
+const serviceAuth = require("./agent/middleware/serviceAuth");
+const bridgeRoutes = require("./agent/routes/bridge");
+
+app.use("/api/bridge", serviceAuth, bridgeRoutes);
+
 app.get("/", (req, res) => {
   res.json({
     name: config.app.name,
