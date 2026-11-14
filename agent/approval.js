@@ -2,7 +2,7 @@
 
 const mongoose = require("mongoose");
 const crypto = require("crypto");
-const { hashAction, checkActionPermission, validateExecutableAction } = require("./security");
+const { hashAction, validateExecutableAction } = require("./security");
 const Task = require("./models/Task");
 
 const approvalSchema = new mongoose.Schema({
@@ -44,13 +44,8 @@ async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 *
   }
 
   validateExecutableAction(action);
-  if (!["create", "edit"].includes(action.type)) {
-    throw new Error("Only create/edit actions may enter approval workflow");
-  }
-
-  const permission = checkActionPermission(action.type);
-  if (!permission.requiresApproval) {
-    throw new Error("This action does not require approval");
+  if (!["read", "create", "edit", "test"].includes(action.type)) {
+    throw new Error("Unsupported action type for approval workflow");
   }
   if (!Number.isFinite(expiresInMs) || expiresInMs < 60 * 1000 || expiresInMs > 24 * 60 * 60 * 1000) {
     throw new Error("Approval expiry must be between 1 minute and 24 hours");
