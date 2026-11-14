@@ -6,9 +6,17 @@ require("dotenv").config();
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const mongoose = require("mongoose");
 
 const config = require("./agent/config");
 const { connectDatabase, disconnectDatabase } = require("./agent/db");
+
+const Admin = require("./agent/models/Admin");
+const { hashPassword } = require("./agent/auth/password");
+
+const authRoutes = require("./agent/routes/auth");
+const serviceAuth = require("./agent/middleware/serviceAuth");
+const bridgeRoutes = require("./agent/routes/bridge");
 
 const app = express();
 
@@ -33,7 +41,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-
 app.use(express.json({
   limit: "100kb",
   verify: (req, res, buf) => {
@@ -41,23 +48,101 @@ app.use(express.json({
   }
 }));
 
+// Authentication routes
+app.use("/api/auth", authRoutes);
 
-const serviceAuth = require("./agent/middleware/serviceAuth");
-const bridgeRoutes = require("./agent/routes/bridge");
-
+// Bridge routes
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
+
+// One-time Owner Bootstrap
+async function bootstrapOwner() {
+  await Admin.init();
+
+  await Admin.collection.createIndex(
+    { role: 1 },
+    {
+      unique: true,
+      partialFilterExpression: { role: "owner" },
+      name: "unique_owner_role"
+    }
+  );
+
+  const existingOwner = await Admin.findOne({ role: "owner" });
+
+  if (existingOwner) {
+    console.log("[Bootstrap] Owner already exists. Skipping.");
+    return;
+  }
+
+  const { username, password } = config.adminBootstrap;
+
+  if (!username || !password) {
+    throw new Error(
+      "No Owner exists. Configure ADMIN_USERNAME and ADMIN_PASSWORD."
+    );
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  try {
+    await Admin.create({
+      username,
+      passwordHash,
+      role: "owner",
+      permissions: ["*"],
+      isActive: true
+    });
+
+    console.log("[Bootstrap] Initial Owner created successfully.");
+  } catch (error) {
+    if (error.code === 11000) {
+      const owner = await Admin.findOne({ role: "owner" });
+
+      if (owner) {
+        console.log("[Bootstrap] Owner created by another instance.");
+        return;
+      }
+    }
+
+    throw error;
+  }
+}
+
+// NIRZON Deployment Banner
+function showDeploymentBanner() {
+  console.log(`
+╔══════════════════════════════════════════════════╗
+║                                                  ║
+║   ███╗   ██╗██╗██████╗ ███████╗ ██████╗ ███╗   ██╗║
+║   ████╗  ██║██║██╔══██╗╚══███╔╝██╔═══██╗████╗  ██║║
+║   ██╔██╗ ██║██║██████╔╝  ███╔╝ ██║   ██║██╔██╗ ██║║
+║   ██║╚██╗██║██║██╔══██╗ ███╔╝  ██║   ██║██║╚██╗██║║
+║   ██║ ╚████║██║██║  ██║███████╗╚██████╔╝██║ ╚████║║
+║   ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝║
+║                                                  ║
+║              AGENT BACKEND                       ║
+║              DEPLOYMENT SUCCESSFUL               ║
+║                                                  ║
+║              OWNER : NIRZON                      ║
+║              STATUS: ONLINE                      ║
+║              DATABASE: CONNECTED                 ║
+║              SECURITY: APPROVAL REQUIRED         ║
+║                                                  ║
+╚══════════════════════════════════════════════════╝
+  `);
+}
 
 app.get("/", (req, res) => {
   res.json({
     name: config.app.name,
+    owner: "NIRZON",
     status: "online",
     message: "Agent Backend is running"
   });
 });
 
 app.get("/api/health", (req, res) => {
-  const databaseConnected =
-    require("mongoose").connection.readyState === 1;
+  const databaseConnected = mongoose.connection.readyState === 1;
 
   res.status(databaseConnected ? 200 : 503).json({
     status: databaseConnected ? "healthy" : "degraded",
@@ -85,9 +170,11 @@ let server;
 
 async function startServer() {
   await connectDatabase();
+  await bootstrapOwner();
 
   server = app.listen(config.app.port, "0.0.0.0", () => {
     console.log(`[Agent Backend] Running on port ${config.app.port}`);
+    showDeploymentBanner();
   });
 }
 
