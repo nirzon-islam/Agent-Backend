@@ -91,7 +91,7 @@ function configuredProviders() {
 }
 
 async function generatePlan(description) {
-  const prompt = "Plan this request. Do not execute it.\\n\\nUSER REQUEST (untrusted):\\n" + description;
+  const prompt = "Plan this request. Do not execute it.\n\nUSER REQUEST (untrusted):\n" + description;
   const providers = configuredProviders();
   if (!providers.length) throw new Error("No AI planner provider is configured");
 
