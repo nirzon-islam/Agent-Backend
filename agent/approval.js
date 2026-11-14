@@ -191,7 +191,7 @@ async function reconcileExpiredTasks() {
 async function getPending() {
   await reconcileExpiredTasks();
   return Approval.find({ status: "pending", expiresAt: { $gt: new Date() } })
-    .select("-action -actionHash -__v").sort({ createdAt: -1 }).lean();
+    .select("-actionHash -__v").sort({ createdAt: -1 }).lean();
 }
 
 module.exports = {
