@@ -28,10 +28,11 @@ router.post("/claim", async (req, res) => {
     });
   }
 
-  const session = await mongoose.startSession();
+  let session;
   let claimedTask = null;
 
   try {
+    session = await mongoose.startSession();
     await session.withTransaction(async () => {
       const task = await Task.findOne({
         taskId,
@@ -56,7 +57,7 @@ router.post("/claim", async (req, res) => {
 
       const actualHash = security.hashAction(approval.action);
 
-      if (actualHash !== approval.actionHash) {
+      if (!security.safeHashEqual(actualHash, approval.actionHash)) {
         throw new Error("ACTION_HASH_MISMATCH");
       }
 
@@ -143,7 +144,7 @@ router.post("/claim", async (req, res) => {
     });
 
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
   }
 });
 
