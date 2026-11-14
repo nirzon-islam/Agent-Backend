@@ -1,7 +1,9 @@
+
 "use strict";
 
 const crypto = require("crypto");
 const Session = require("../models/Session");
+const Admin = require("../models/Admin");
 
 function hashToken(token) {
   return crypto
@@ -26,7 +28,6 @@ async function authenticate(req, res, next) {
 
     const token = authorization.slice(7).trim();
 
-    // 32-byte base64url token validation
     if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
       return res.status(401).json({
         success: false,
@@ -34,10 +35,8 @@ async function authenticate(req, res, next) {
       });
     }
 
-    const tokenHash = hashToken(token);
-
     const session = await Session.findOne({
-      tokenHash,
+      tokenHash: hashToken(token),
       expiresAt: { $gt: new Date() },
       revokedAt: null
     })
@@ -51,13 +50,31 @@ async function authenticate(req, res, next) {
       });
     }
 
+    const admin = await Admin.findOne({
+      _id: session.userId,
+      isActive: true
+    })
+      .select("_id username role permissions")
+      .lean();
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Admin account is inactive or unavailable."
+      });
+    }
+
     req.user = {
-      id: String(session.userId)
+      id: String(admin._id),
+      username: admin.username,
+      role: admin.role,
+      permissions: admin.permissions
     };
 
-    next();
+    return next();
+
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
