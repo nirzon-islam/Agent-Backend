@@ -6,6 +6,7 @@ const crypto = require("crypto");
 
 const router = express.Router();
 const Task = require("../models/Task");
+const { reconcileExpiredTasks } = require("../approval");
 
 const ALLOWED_TYPES = new Set([
   "read",
@@ -75,6 +76,7 @@ router.post("/", async (req, res) => {
 // Get the status of the signed-in user's task.
 router.get("/:taskId", async (req, res) => {
   try {
+    await reconcileExpiredTasks();
     const task = await Task.findOne({
       taskId: req.params.taskId,
       requestedBy: String(req.user.id)
