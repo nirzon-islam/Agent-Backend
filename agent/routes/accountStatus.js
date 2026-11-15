@@ -40,7 +40,7 @@ router.post("/recovery", async (req, res) => {
     const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     const cookie = req.body.cookie;
     const record = await BotAccountStatus.findOne({ key: "primary" }).lean();
-    if (!record || !["logged_out", "error"].includes(record.state) || record.accountId !== botId) {
+    if (!record || !["logged_out", "error", "unknown"].includes(record.state) || !record.lastHeartbeatAt || Date.now() - new Date(record.lastHeartbeatAt).getTime() > 90 * 1000 || record.accountId !== botId) {
       return res.status(409).json({ success: false, message: "Bot ID must match the currently logged-out account." });
     }
     const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
