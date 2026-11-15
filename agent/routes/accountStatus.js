@@ -46,7 +46,7 @@ router.post("/recovery", async (req, res) => {
   try {
     const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     const cookie = req.body.cookie;
-    if (!/^\\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID." });
+    if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID." });
     const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
     return res.status(202).json({ success: true, requestId: queued.requestId, expiresAt: queued.expiresAt,
       message: "Cookie accepted for one-time delivery. It expires in 2 minutes if the worker does not claim it." });
