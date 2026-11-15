@@ -1,116 +1,188 @@
-# 🤖 Agent Setup Help — বাংলা গাইড
+# 🤖 Agent Setup & Configuration Help
 
-**প্রকল্প:** Agent Backend  
-**Owner / Creator:** Md SalmaN (NirZon)  
-**GitHub:** https://github.com/nirzon-islam/Agent-Backend  
-**GoatBot repository:** https://github.com/nirzon-islam/OmegA-Goatbot
+**Project Owner:** Md SalmaN (NirZon)  
+**Agent Backend:** https://github.com/nirzon-islam/Agent-Backend  
+**GoatBot Runtime:** https://github.com/nirzon-islam/OmegA-Goatbot  
+**Agent Dashboard / API:** https://agent-backend-jron.onrender.com
 
-এই ফাইলটি Agent-এর সেটিংস, Messenger সংযোগ, নিরাপত্তা এবং বাকি কাজগুলো মনে রাখার জন্য। এখানে কোনো আসল password, API key, Facebook cookie বা bridge secret রাখা যাবে না।
+এই ম্যানুয়ালটি Agent-এর নিজের setup reference। কোন repository কী কাজ করে, কোথায় configuration থাকে এবং Render ↔ Railway connection কীভাবে configure করতে হয়—এখানে তা লেখা আছে। এটি কোনো remaining-work checklist নয়।
 
----
+## ১. Repository map 🗂️
 
-## ১) কোন Repository কোথায়?
+| Repository | দায়িত্ব |
+|---|---|
+| `nirzon-islam/Agent-Backend` | AI planner, task manager, Owner approval, dashboard, API ও secure bridge server |
+| `nirzon-islam/OmegA-Goatbot` | Facebook Messenger bot/runtime; Railway-তে চালানো হয় এবং Agent-এর worker/bridge client থাকার জায়গা |
 
-- **Agent Backend:** `nirzon-islam/Agent-Backend` — Agent-এর API, AI planner, approval system এবং dashboard।
-- **GoatBot:** `nirzon-islam/OmegA-Goatbot` — Messenger bot/runtime; Agent-এর সঙ্গে secure bridge দিয়ে যোগাযোগ করবে।
-- **GitHub account/owner:** `nirzon-islam`।
-- **Project owner:** Md SalmaN (NirZon)।
+**Source of truth:** Agent-এর backend setting জানতে Agent-Backend-এর `.env.example`, `agent/config.js`, `server.js`, `agent/routes/` এবং `AGENT_DEPLOYMENT.md` দেখবে। GoatBot-side setting জানতে OmegA-Goatbot-এর active branch-এর runtime entry file, package files এবং Agent bridge/worker integration source দেখবে। শুধু README বা পুরোনো নোট দেখে কোনো feature live আছে ধরে নেবে না।
 
-Agent-এর মূল backend code Agent-Backend repository-তেই থাকবে। GoatBot repository-তে শুধু bot-side bridge/worker integration থাকবে।
+Private repository হলে Agent কেবল অনুমোদিত GitHub connection/access থাকলেই source পড়তে পারবে। Access না থাকলে Owner-কে repository permission বা প্রয়োজনীয় file দিতে হবে।
 
-## ২) Render — Agent Backend Environment
+## ২. System connection overview 🔗
 
-Render-এর **Agent-Backend Web Service → Environment**-এ নিচের variable-গুলো যাচাই/সেট করতে হবে:
+```text
+Messenger User
+     |
+     v
+OmegA-Goatbot (Railway)
+     |  signed HTTPS bridge request
+     v
+Agent Backend (Render)
+     |
+     +--> MongoDB (tasks, approvals, owner data)
+     |
+     +--> Configured AI provider(s)
+     |
+     v
+Owner approval / task result
+     |
+     v
+GoatBot worker (Railway workspace)
+```
 
-| Variable | কী দিতে হবে |
+- **Render**-এ Agent Backend Web Service চলে।
+- **Railway**-তে GoatBot runtime চলে।
+- **MongoDB** task, approval এবং Owner data সংরক্ষণ করে।
+- GoatBot ও Agent-এর bridge secret দুই host-এ একই হতে হয়।
+- Render free instance inactive থাকলে sleep করতে পারে; সবসময় instant response নিশ্চিত নয়।
+
+## ৩. Render: Agent Backend configure করা ☁️
+
+Render Dashboard → **Agent-Backend Web Service** → **Environment**-এ variable configure করতে হবে। বর্তমান service URL: `https://agent-backend-jron.onrender.com`।
+
+| Variable | কীভাবে সেট করবে |
 |---|---|
 | `NODE_ENV` | `production` |
-| `PORT` | Render-এর দেওয়া port; hardcode নয় |
-| `MONGODB_URI` | MongoDB Atlas replica-set connection URI |
-| `ADMIN_USERNAME` | Owner dashboard-এর username (৩–৪০ অক্ষর; lowercase, number, _ বা -) |
-| `ADMIN_PASSWORD` | Unique password, ১২–১২৮ অক্ষর |
-| `GEMINI_API_KEY` | Gemini API key |
-| `GEMINI_MODEL` | `gemini-2.5-flash` (বর্তমান default) |
-| `GROQ_API_KEY` | Groq fallback API key, ব্যবহার করতে চাইলে |
-| `GROQ_MODEL` | `openai/gpt-oss-120b` (বর্তমান default) |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare ব্যবহার করলে |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare ব্যবহার করলে |
-| `CLOUDFLARE_MODEL` | Cloudflare ব্যবহার করলে |
-| `BRIDGE_ENABLED` | এখন `false` রাখো; integration test শেষ না হওয়া পর্যন্ত enable নয় |
-| `BRIDGE_SECRET` | পরে bridge চালুর সময় random ৩২+ character secret |
-| `AGENT_ALLOWED_SENDER_IDS` | অনুমোদিত Messenger sender ID-গুলোর comma-separated তালিকা |
-| `AGENT_OWNER_SENDER_IDS` | Owner-এর Messenger sender ID; comma-separated |
-| `WEBSITE_ORIGINS` | Dashboard আলাদা origin-এ host করা হলে exact origin |
+| `PORT` | Render-এর runtime-provided port; source-এ default 3000, Render-এর port override করতে দাও |
+| `MONGODB_URI` | MongoDB Atlas/replica-set connection URI |
+| `ADMIN_USERNAME` | প্রথম Owner bootstrap username; ৩–৪০ lowercase letter, digit, underscore বা hyphen |
+| `ADMIN_PASSWORD` | প্রথম Owner bootstrap password; ১২–১২৮ character |
+| `GEMINI_API_KEY` | Gemini ব্যবহার করলে provider key |
+| `GEMINI_MODEL` | optional; default `gemini-2.5-flash` |
+| `GROQ_API_KEY` | Groq ব্যবহার করলে provider key |
+| `GROQ_MODEL` | optional; default `openai/gpt-oss-120b` |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Workers AI ব্যবহার করলে |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare Workers AI ব্যবহার করলে |
+| `CLOUDFLARE_MODEL` | Cloudflare model identifier |
+| `BRIDGE_ENABLED` | bridge integration ও database-backed test যাচাই না হওয়া পর্যন্ত `false` |
+| `BRIDGE_SECRET` | bridge enable করার সময় random কমপক্ষে ৩২-character secret |
+| `AGENT_ALLOWED_SENDER_IDS` | Agent-এ request পাঠাতে পারবে এমন Facebook sender ID-র comma-separated তালিকা |
+| `AGENT_OWNER_SENDER_IDS` | Messenger থেকে Owner approval action করতে পারবে এমন Owner sender ID-র comma-separated তালিকা |
+| `WEBSITE_ORIGINS` | dashboard আলাদা domain/origin-এ থাকলে exact origin; same-origin dashboard হলে সাধারণত ফাঁকা |
 
-**গুরুত্বপূর্ণ:** `AGENT_ALLOWED_SENDER_IDS` আর `AGENT_OWNER_SENDER_IDS` আলাদা কাজ করে। প্রথমটি Agent-এ request পাঠাতে পারবে কারা, দ্বিতীয়টি Messenger থেকে pending approval দেখা/approve/reject করতে পারবে কারা—তা নিয়ন্ত্রণ করে।
+কমপক্ষে একটি AI provider-এর valid key configure করতে হবে। শুধু model name থাকলে provider active হয় না।
 
-Owner Messenger sender ID (বর্তমান নোট): `61561645647195`। Render-এ `AGENT_OWNER_SENDER_IDS`-এ এটি বসাতে হবে; request পাঠানোর অনুমতি দিতে চাইলে `AGENT_ALLOWED_SENDER_IDS`-এও রাখতে হবে।
+### Owner dashboard bootstrap
 
-## ৩) Railway — GoatBot Environment
+- Dashboard Agent Backend-এর `public/` directory থেকে serve হয়; service root URL খুলে dashboard access করা যায়।
+- প্রথমবার database-এ Owner না থাকলে `ADMIN_USERNAME` ও `ADMIN_PASSWORD` দিয়ে Owner তৈরি হয়।
+- Database-এ Owner আগে থেকেই থাকলে startup log-এ **Owner already exists. Skipping.** দেখা যায়; environment variable বদলালেই existing Owner password overwrite হয় না।
+- Login/API issue হলে Render logs, database connection এবং auth route/source পরীক্ষা করো।
 
-OmegA-Goatbot যে Railway service-এ চলছে, তার **Variables**-এ bridge integration চালুর আগে এগুলো যাচাই করতে হবে:
+### Database requirement
 
-| Variable | কী দিতে হবে |
+`MONGODB_URI` এমন MongoDB deployment-এর হতে হবে যা replica-set transaction support করে (যেমন MongoDB Atlas)। Approval/task workflow transaction ব্যবহার করে; standalone MongoDB যথেষ্ট নয়। URI কখনো GitHub বা chat-এ লিখবে না।
+
+## ৪. Railway: GoatBot-side bridge configure করা 🚂
+
+Railway → GoatBot project → সংশ্লিষ্ট service → **Variables**-এ Agent integration-এর variable configure করা হয়:
+
+| Variable | Value / কাজ |
 |---|---|
-| `AGENT_BRIDGE_ENABLED` | integration test শেষ না হওয়া পর্যন্ত `false` |
-| `AGENT_WORKER_ENABLED` | integration test শেষ না হওয়া পর্যন্ত `false` |
-| `AGENT_BACKEND_URL` | Agent Backend Render URL: `https://agent-backend-jron.onrender.com` |
+| `AGENT_BRIDGE_ENABLED` | GoatBot bridge client enable/disable flag |
+| `AGENT_WORKER_ENABLED` | worker enable/disable flag |
+| `AGENT_BACKEND_URL` | `https://agent-backend-jron.onrender.com` |
 | `AGENT_BRIDGE_SECRET` | Render-এর `BRIDGE_SECRET`-এর সঙ্গে হুবহু একই secret |
-| `AGENT_ALLOWED_SENDER_IDS` | অনুমোদিত Messenger sender ID-গুলোর তালিকা |
-| `AGENT_OWNER_SENDER_IDS` | Owner sender ID-র তালিকা, যদি bot-side code এই variable ব্যবহার করে |
+| `AGENT_WORKSPACE_ROOT` | optional; worker-এর workspace path; না দিলে documented default process working directory |
 
-Bridge চালু করার সময় দুই পাশে secret একদম একই হতে হবে। Secret কখনো Messenger chat, source code, GitHub file বা screenshot-এ দেবে না।
+**গুরুত্বপূর্ণ:** Agent-Backend-এর deployment guide-এ দুই GoatBot flag enable করার কথা আছে। কিন্তু OmegA-Goatbot-এর যে branch/source inspect করা হয়েছে, সেখানে `AGENT_BRIDGE_ENABLED`, `AGENT_WORKER_ENABLED` বা `AGENT_BACKEND_URL` code reference পাওয়া যায়নি। তাই variable যোগ করলেই integration কাজ করবে—এমন ধরে নেবে না। আগে active Railway branch-এর `EryXenX.js`/runtime entry ও worker source-এ integration উপস্থিত আছে কি না যাচাই করবে। Source integration না থাকলে Owner-এর অনুমোদিত code change ছাড়া bridge enable করবে না।
 
-## ৪) Messenger থেকে Agent ব্যবহার
+### Shared secret setup
 
-বর্তমান পরিকল্পিত command:
+1. Password manager বা trusted random generator দিয়ে ৩২+ character random secret তৈরি করো।
+2. Render-এর `BRIDGE_SECRET`-এ সেট করো।
+3. Railway-এর `AGENT_BRIDGE_SECRET`-এ একই value বসাও।
+4. দুই value হুবহু এক কি না যাচাই করো।
+5. Secret কাউকে Messenger-এ পাঠাবে না; source file, commit, screenshot বা এই help file-এ রাখবে না।
 
-- `!agent <request>` — Agent-কে কাজের অনুরোধ পাঠানো।
-- `!agent pending` — Owner-এর pending approval দেখা।
-- `!agent approve <taskId বা approvalId>` — নির্দিষ্ট কাজ অনুমোদন।
-- `!agent reject <taskId বা approvalId>` — নির্দিষ্ট কাজ বাতিল।
-- `!agent status <taskId>` — নিজের পাঠানো task-এর status দেখা।
+## ৫. Sender ID ও permission 👤
 
-কমান্ডগুলো live bot-এ কাজ করছে—এমন ধরে নেওয়া যাবে না; Messenger-to-Agent end-to-end test দিয়ে নিশ্চিত করতে হবে। Prefix/command routing এবং bot-side bridge handler deploy করা আছে কি না আগে যাচাই করো।
+- `AGENT_ALLOWED_SENDER_IDS`: কারা Messenger থেকে Agent request পাঠাতে পারবে।
+- `AGENT_OWNER_SENDER_IDS`: কারা Messenger-এর Owner-only pending approval, approve এবং reject endpoint ব্যবহার করতে পারবে।
+- এক তালিকায় ID থাকা মানে অন্য permission স্বয়ংক্রিয়ভাবে পাওয়া নয়।
+- ID comma দিয়ে আলাদা করতে হবে; অপ্রয়োজনীয় space বাদ দিয়ে source config অনুযায়ী trim করা হয়।
+- কোনো ব্যক্তির ID অনুমান করে বা পুরোনো নোট থেকে কপি করে বসাবে না; Facebook-এর সঠিক sender ID Owner নিজে যাচাই করবেন।
 
-## ৫) AI Provider ও আগের Error
+## ৬. Dashboard, API ও health check 🩺
 
-Gemini planner-এ আগে `503: This model is currently experiencing high demand` এবং timeout দেখা গিয়েছিল। তাই:
+Agent Backend-এর source-এ পাওয়া route:
 
-1. Render Environment-এ `GEMINI_API_KEY` সত্যিই আছে কি না যাচাই করো।
-2. Groq fallback ব্যবহার করতে চাইলে `GROQ_API_KEY` সেট করো।
-3. Render logs-এ provider error এবং fallback attempt দেখো।
-4. ছোট, নিরাপদ read-only request দিয়ে planner পরীক্ষা করো।
-5. Provider সফল না হলে একই request বারবার পাঠিও না।
+| Path | ব্যবহার |
+|---|---|
+| `/` | Static Owner dashboard |
+| `/api/health` | service ও MongoDB connection health |
+| `/api/auth` | dashboard authentication |
+| `/api/tasks` | authenticated Owner task routes |
+| `/api/approvals` | authenticated Owner approval routes |
+| `/api/account/status` | authenticated Owner account-status routes |
+| `/api/bridge` | signed service-authenticated GoatBot bridge routes |
 
-শুধু model name থাকলেই provider সক্রিয় হয় না; valid API key এবং provider availability দরকার।
+Health endpoint healthy হলে HTTP 200 এবং database connected দেখায়; database disconnected হলে degraded/503 দেখায়। Render service logs-এ database connection, Owner bootstrap এবং server startup message দেখা যায়।
 
-## ৬) নিরাপত্তা ও Approval নিয়ম
+## ৭. Bridge-এর কাজের ধরন
 
-- প্রতিটি sensitive action-এর আগে Owner approval বাধ্যতামূলক।
-- পরিবর্তনের আগে backup এবং apply করার আগে validation/test থাকতে হবে।
-- Arbitrary shell command execution বন্ধ থাকবে।
-- Automatic delete/install চালু করা যাবে না; প্রয়োজন হলে explicit approval এবং code review লাগবে।
-- Facebook cookie, AppState, password, API key, MongoDB URI বা bridge secret কখনো GitHub-এ commit করা যাবে না।
-- Facebook cookie password-এর মতো গোপনীয়; শুধু অনুমোদিত secure recovery/login flow ব্যবহার করবে।
-- Database অবশ্যই MongoDB replica-set/Atlas compatible হতে হবে, কারণ approval workflow transaction ব্যবহার করে।
+Backend bridge route-এ request intake, task status, Owner approval এবং worker queue/result flow রয়েছে। Worker-side documented operation-এর মধ্যে workspace file inventory/read, create/edit, backup-সহ delete, restore verification, move/rename, directory operation, JavaScript syntax check, fixed npm operation এবং Owner-approved supervisor restart রয়েছে।
 
-## ৭) এখন কী কী বাকি — Checklist
+Worker protected path-এ Git metadata, dependency folder, hidden files, credentials, account/appstate/cookie data ও internal backup storage অন্তর্ভুক্ত। Arbitrary shell command বা npm lifecycle script চালানোর ব্যবস্থা documented নয়।
 
-- [ ] Render Environment-এর required variables যাচাই।
-- [ ] MongoDB Atlas URI এবং replica-set transaction support নিশ্চিত।
-- [ ] Gemini key পরীক্ষা এবং Groq fallback configure/verify।
-- [ ] Owner dashboard login পরীক্ষা।
-- [ ] `AGENT_ALLOWED_SENDER_IDS` ও `AGENT_OWNER_SENDER_IDS` দুই জায়গায় সঠিকভাবে configure।
-- [ ] GoatBot branch-এর bridge/worker code এবং environment variable মিলিয়ে দেখা।
-- [ ] Messenger-এর `!agent`, pending, approve, reject, status command end-to-end test।
-- [ ] Account heartbeat/status এবং cookie recovery flow নিরাপদে test।
-- [ ] Backup, validation, approval, rollback test।
-- [ ] সব test pass না করা পর্যন্ত bridge/worker disabled রাখা।
+Messenger command name বা prefix branch-specific। Active GoatBot command handler inspect না করে `!agent` বা অন্য কোনো command syntax-কে নিশ্চিত command হিসেবে ব্যবহার করবে না।
 
-**Deploy সতর্কতা:** আগে code, environment, database এবং integration test review করতে হবে। Owner-এর স্পষ্ট অনুমতি ছাড়া Railway বা Render deploy/restart করা যাবে না।
+## ৮. Security defaults 🔐
+
+বর্তমান Agent config-এ:
+- sensitive action-এর আগে Owner approval বাধ্যতামূলক;
+- change-এর আগে backup;
+- apply-এর আগে test/validation;
+- automatic install বন্ধ;
+- automatic delete বন্ধ;
+- arbitrary shell execution বন্ধ;
+- সর্বোচ্চ pending approval: ৫।
+
+এই guardrail bypass করার জন্য environment variable বানাবে না। Cookie/AppState, Facebook password, API key, MongoDB URI, dashboard password ও bridge secret গোপন credential—GitHub-এ commit করবে না। কোনো secret Git history-তে চলে গেলে শুধু file থেকে মুছলেই নিরাপদ হয় না; provider থেকে rotate/revoke করতে হবে।
+
+## ৯. Troubleshooting reference 🧰
+
+| লক্ষণ | কোথায় পরীক্ষা করবে |
+|---|---|
+| Dashboard খুলছে না | Render service status, deploy logs, `public/index.html`, `server.js` |
+| Health degraded | `MONGODB_URI`, MongoDB network access, Render logs |
+| Owner login হচ্ছে না | existing Owner record, auth route, username/password; bootstrap env existing Owner overwrite করে না |
+| AI task plan হচ্ছে না | provider API key, model name, provider quota/availability, task logs |
+| Bridge unauthorized | দুই host-এর secret হুবহু মেলে কি না, signed request/time/nonce handling, service logs |
+| Messenger sender denied | `AGENT_ALLOWED_SENDER_IDS` এবং সঠিক sender ID |
+| Owner approval denied | `AGENT_OWNER_SENDER_IDS` এবং Owner sender ID |
+| Worker queue/result আসছে না | Railway active branch-এ worker code আছে কি না, দুই worker flag, backend URL, shared secret, Railway logs |
+| পরিবর্তন live হচ্ছে না | GitHub branch, Render/Railway configured branch ও deployed commit আলাদা করে যাচাই |
+
+## ১০. Configuration source index 📚
+
+**Agent-Backend**
+- `.env.example` — Render environment variable reference
+- `agent/config.js` — app, database, AI provider, bridge ও security config
+- `server.js` — startup, dashboard static hosting, routes, health check ও Owner bootstrap
+- `agent/routes/bridge.js` — bridge API
+- `AGENT_DEPLOYMENT.md` — backend/worker deployment variable reference
+- `DEPLOYMENT.md` — runtime, MongoDB ও safe deployment guidance
+- `public/` — dashboard UI assets
+
+**OmegA-Goatbot**
+- `README.md` — bot setup, account.txt cookie placement, config.json ও Railway/VPS runtime guidance
+- `config.json` — bot prefix, adminBot ও runtime options (বর্তমান repository README অনুযায়ী)
+- `account.txt` — Facebook session cookie JSON রাখার runtime file; কখনো commit/share করবে না
+- `EryXenX.js` / active runtime entry এবং Agent worker source — bridge integration branch-এ থাকলে সেখান থেকে exact implementation যাচাই করবে
 
 ---
 
-**Maintained by:** Md SalmaN (NirZon)  
-**Project:** Agent Backend × OmegA-Goatbot  
+**Maintained for:** Md SalmaN (NirZon)  
+**Projects:** Agent Backend × OmegA-Goatbot  
+**Last note:** এই নথি configuration guide; এটি নিজে কোনো deploy, restart বা live setting পরিবর্তন করে না।
