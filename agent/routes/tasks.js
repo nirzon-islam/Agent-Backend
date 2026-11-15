@@ -71,6 +71,28 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Download a text file created or restored by the GoatBot server worker.
+router.get("/:taskId/files/:fileIndex", async (req, res) => {
+  try {
+    const task = await Task.findOne({ taskId: req.params.taskId, requestedBy: String(req.user.id), status: "completed" }).select("result").lean();
+    if (!task || typeof task.result !== "string") return res.status(404).json({ success: false, message: "Download not found" });
+    let payload;
+    try { payload = JSON.parse(task.result); } catch { payload = null; }
+    const files = payload && Array.isArray(payload.downloadableFiles) ? payload.downloadableFiles : [];
+    const index = Number(req.params.fileIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= files.length) return res.status(404).json({ success: false, message: "Download not found" });
+    const file = files[index];
+    if (!file || typeof file.content !== "string" || typeof file.path !== "string" || Buffer.byteLength(file.content, "utf8") > 262144) return res.status(404).json({ success: false, message: "Download not found" });
+    const baseName = file.path.split("/").pop().replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "agent-file.txt";
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=\"" + baseName + "\"");
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.send(file.content);
+  } catch (error) {
+    console.error("[Task Download]", error.message);
+    return res.status(500).json({ success: false, message: "Unable to download task file" });
+  }
+});
 // Get the status of the signed-in user's task.
 router.get("/:taskId", async (req, res) => {
   try {
