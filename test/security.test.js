@@ -49,7 +49,7 @@ test("protected action types require approval; read/test do not", () => {
   assert.throws(() => security.checkActionPermission("shell"));
 });
 
-test("executable action schema matches the restricted Railway executor", () => {
+test("executable action schema matches the server-side workspace executor", () => {
   assert.equal(security.validateExecutableAction({
     type: "edit", path: "languages/bn.lang", content: "hello"
   }).type, "edit");
@@ -59,24 +59,27 @@ test("executable action schema matches the restricted Railway executor", () => {
   assert.equal(security.validateExecutableAction({
     type: "test", path: "languages/helper.js"
   }).type, "test");
-  assert.throws(() => security.validateExecutableAction({
+  assert.equal(security.validateExecutableAction({
     type: "delete", path: "languages/bn.lang"
-  }), /Unsupported executable action/);
+  }).type, "delete");
   assert.equal(security.validateExecutableAction({
     type: "edit", path: "scripts/cmds/admin.js", content: "x"
   }).path, "scripts/cmds/admin.js");
   assert.equal(security.validateExecutableAction({
     type: "create", path: "scripts/events/onMessage.js", content: "module.exports = {};"
   }).path, "scripts/events/onMessage.js");
+  assert.equal(security.validateExecutableAction({
+    type: "edit", path: "dashboard/admin.css", content: "x"
+  }).path, "dashboard/admin.css");
   assert.throws(() => security.validateExecutableAction({
-    type: "edit", path: "scripts/cmds/admin.txt", content: "x"
-  }), /outside the language workspace/);
+    type: "edit", path: ".env", content: "x"
+  }), /outside the server workspace/);
   assert.throws(() => security.validateExecutableAction({
     type: "edit", path: "languages/bn.lang", content: "x", command: "rm -rf"
   }), /invalid shape/);
   assert.throws(() => security.validateExecutableAction({
-    type: "edit", path: "languages/bn.lang", content: "x".repeat(65537)
-  }), /64 KiB/);
+    type: "edit", path: "languages/bn.lang", content: "x".repeat(262145)
+  }), /256 KiB/);
   assert.throws(() => security.validateExecutableAction({
     type: "test", path: "languages/file.lang"
   }), /JavaScript files/);
@@ -86,7 +89,7 @@ test("executable action schema matches the restricted Railway executor", () => {
 test("multi-step plans accept bounded read-only and file actions", () => {
   const plan = {
     type: "plan",
-    summary: "Inspect language files",
+    summary: "Inspect server workspace",
     steps: [
       { type: "list", path: "languages" },
       { type: "readMany", path: "languages" },
@@ -100,11 +103,11 @@ test("multi-step plans accept bounded read-only and file actions", () => {
 test("multi-step plans reject empty, oversized, and malformed plans", () => {
   assert.throws(() => security.validateExecutablePlan({ type: "plan", steps: [] }), /Invalid multi-step plan/);
   assert.throws(() => security.validateExecutablePlan({
-    type: "plan", steps: Array.from({ length: 13 }, () => ({ type: "list", path: "languages" }))
+    type: "plan", steps: Array.from({ length: 21 }, () => ({ type: "list", path: "languages" }))
   }), /Invalid multi-step plan/);
   assert.throws(() => security.validateExecutablePlan({
     type: "plan", steps: [{ type: "list", path: "scripts" }]
-  }), /outside the language workspace/);
+  }), /Invalid multi-step plan/);
   assert.throws(() => security.validateExecutablePlan({
     type: "plan", steps: [{ type: "shell", command: "echo unsafe" }]
   }), /Unsupported executable action/);
