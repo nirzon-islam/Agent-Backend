@@ -138,16 +138,37 @@ async function generatePlan(description) {
     : (lastProviderError?.message || "All configured AI providers failed"));
 }
 
+const PLAN_CONCURRENCY = 2;
+const PLAN_QUEUE_MAX = 200;
+const planQueue = [];
+const queuedPlanIds = new Set();
+let activePlans = 0;
+
+function drainPlanQueue() {
+  while (activePlans < PLAN_CONCURRENCY && planQueue.length) {
+    const item = planQueue.shift();
+    queuedPlanIds.delete(item.taskId);
+    activePlans++;
+    planTask(item.taskId).catch(error => {
+      console.error("[Planner Background] " + String(item.source || "unknown") + " task " + item.taskId + ": " +
+        String(error && error.message || error).slice(0, 700));
+    }).finally(() => {
+      activePlans--;
+      drainPlanQueue();
+    });
+  }
+}
+
 function schedulePlanTask(taskId, source) {
   if (typeof taskId !== "string" || !taskId || taskId.length > 128) {
     throw new Error("Invalid task ID for background planning");
   }
-  setImmediate(() => {
-    planTask(taskId).catch(error => {
-      console.error("[Planner Background] " + String(source || "unknown") + " task " + taskId + ": " +
-        String(error && error.message || error).slice(0, 700));
-    });
-  });
+  if (queuedPlanIds.has(taskId)) return false;
+  if (planQueue.length >= PLAN_QUEUE_MAX) throw new Error("AI planning queue is full; retry later");
+  queuedPlanIds.add(taskId);
+  planQueue.push({ taskId, source });
+  setImmediate(drainPlanQueue);
+  return true;
 }
 
 async function planTask(taskId) {
@@ -181,7 +202,7 @@ async function planTask(taskId) {
 }
 
 async function resumePendingPlans() {
-  const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
+  const staleBefore = new Date(Date.now() - 20 * 60 * 1000);
   await Task.updateMany(
     { source: { $in: ["messenger", "website"] }, status: "analyzing", updatedAt: { $lt: staleBefore }, approvalId: null },
     { $set: { status: "pending" } }
@@ -190,7 +211,7 @@ async function resumePendingPlans() {
     source: { $in: ["messenger", "website"] },
     status: "pending",
     approvalId: null
-  }).select("taskId source").limit(100).lean();
+  }).select("taskId source").limit(200).lean();
   for (const task of pending) schedulePlanTask(task.taskId, "startup-resume");
   return pending.length;
 }
