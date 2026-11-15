@@ -21,6 +21,8 @@
     $("accountState").className = "status " + (state === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(state) ? "state-bad" : ""));
     $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
     $("accountId").textContent = account.accountId || "Not reported";
+    if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
+    $("recoveryFormPanel").hidden = state !== "logged_out";
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
     if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
@@ -83,6 +85,28 @@
       $("connection").textContent = "Error"; $("loginMessage").textContent = error.message;
     }
   }
+
+  $("recoveryForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = $("submitRecovery");
+    const botId = $("recoveryBotId").value.trim();
+    const cookie = $("recoveryCookie").value;
+    if (!botId || !cookie.trim()) return;
+    button.disabled = true;
+    $("recoveryMessage").textContent = "Sending one-time recovery handoff…";
+    try {
+      const result = await api("/api/account/status/recovery", {
+        method: "POST",
+        body: JSON.stringify({ botId, cookie })
+      });
+      $("recoveryCookie").value = "";
+      $("recoveryMessage").textContent = result.message || "Recovery handoff queued.";
+      await refreshAccountStatus();
+    } catch (error) {
+      $("recoveryMessage").textContent = error.message;
+    } finally { button.disabled = false; }
+  });
+
   $("requestForm").addEventListener("submit", async event => {
     event.preventDefault();
     const button = $("submitRequest");
