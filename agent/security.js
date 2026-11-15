@@ -3,7 +3,7 @@
 const crypto = require("crypto");
 const config = require("./config");
 
-const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "install", "test", "update"]);
+const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "restore", "move", "install", "test", "update"]);
 const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "delete", "restore", "move", "install", "update"]);
 const MAX_PLAN_STEPS = 20;
 const PROTECTED_SEGMENTS = new Set([".git", "node_modules", "secrets", "cache", "cookies", "Fca_Database"]);
@@ -97,7 +97,8 @@ function safeHashEqual(received, expected) {
 }
 function checkActionPermission(type) {
   if (!ALLOWED_ACTIONS.has(type)) throw new Error("Action type is not allowed");
-  if (["install", "delete"].includes(type) && !config.security.allowAutomaticInstall && !config.security.allowAutomaticDelete) return { allowed: false, requiresApproval: true };
+  if (type === "install" && !config.security.allowAutomaticInstall) return { allowed: false, requiresApproval: true };
+  if (type === "delete" && !config.security.allowAutomaticDelete) return { allowed: false, requiresApproval: true };
   if (["edit", "create", "update"].includes(type)) return { allowed: false, requiresApproval: true };
   if (type === "test" || type === "read") return { allowed: true, requiresApproval: false };
   return { allowed: false, requiresApproval: true };
