@@ -35,7 +35,7 @@ function createId() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 * 60 * 1000 }) {
+async function requestApproval({ taskId, action, requestedBy, expiresInMs = 2 * 60 * 60 * 1000 }) {
   if (typeof taskId !== "string" || !taskId ||
       typeof requestedBy !== "string" || !requestedBy ||
       !action || typeof action !== "object" || Array.isArray(action) ||
