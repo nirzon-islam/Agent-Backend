@@ -21,6 +21,7 @@
     button.setAttribute("aria-busy", String(yes));
   }
   let previousAccountState = "";
+  let activeRecoveryRequestId = "";
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
     const account = data.account || {};
@@ -95,6 +96,23 @@
     }
   }
 
+  async function refreshRecoveryProgress() {
+    if (!activeRecoveryRequestId || !token) return;
+    try {
+      const data = await api("/api/account/status/recovery/" + encodeURIComponent(activeRecoveryRequestId));
+      const recovery = data.recovery;
+      const timeline = $("recoveryTimeline");
+      timeline.innerHTML = (recovery.events || []).map(event =>
+        "<li><strong>" + safe(event.state.replace(/_/g, " ")) + "</strong> · " +
+        safe(new Date(event.at).toLocaleString()) + " — " + safe(event.message) + "</li>"
+      ).join("");
+      const terminal = ["online", "checkpoint", "error", "expired"].includes(recovery.state);
+      if (terminal) activeRecoveryRequestId = "";
+    } catch (error) {
+      if (!/not found/i.test(error.message)) console.warn("Recovery progress unavailable");
+    }
+  }
+
   $("recoveryForm").addEventListener("submit", async event => {
     event.preventDefault();
     const button = $("submitRecovery");
@@ -109,6 +127,8 @@
         body: JSON.stringify({ botId, cookie })
       });
       $("recoveryCookie").value = "";
+      activeRecoveryRequestId = result.requestId || "";
+      await refreshRecoveryProgress();
       feedback("recoveryMessage", (result.message || "Recovery handoff queued.") + " Keep this page open and check the bot status.", "success");
       await refreshAccountStatus();
     } catch (error) {
@@ -146,6 +166,7 @@
     catch(error) { alert(error.message); button.disabled=false; }
   });
   $("refreshBtn").addEventListener("click", refresh);
+  setInterval(() => { if (token && activeRecoveryRequestId && !document.hidden) void refreshRecoveryProgress(); }, 3000);
   $("logoutBtn").addEventListener("click", () => { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); });
   if (token) { showApp(true); refresh(); setInterval(() => { if (token && !document.hidden) refresh(); }, 15000); } else showApp(false);
 })();
