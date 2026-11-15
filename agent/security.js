@@ -8,13 +8,14 @@ const ALLOWED_ACTIONS = new Set([
 ]);
 
 
-const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
+const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "delete"]);
 const MAX_PLAN_STEPS = 12;
 
 function validateWorkspaceDirectory(value) {
-  return typeof value === "string" && value.length <= 200 &&
-    /^(?:languages|scripts\/(?:cmds|events))(?:\/[A-Za-z0-9_-]+)*$/.test(value) &&
-    !value.split("/").some(part => [".", "..", "node_modules", "secrets", "cache"].includes(part));
+  return typeof value === "string" && value.length <= 300 &&
+    value.split("/").every(part => /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(part) &&
+      ![".", "..", "node_modules", "secrets", "cache", ".git"].includes(part) &&
+      !/^\.env/i.test(part) && !/^account/i.test(part) && !/^appstate/i.test(part));
 }
 
 function validateExecutablePlan(plan) {
@@ -30,7 +31,7 @@ function validateExecutablePlan(plan) {
     if (!step || typeof step !== "object" || Array.isArray(step)) throw new Error("Invalid plan step");
     if (step.type === "list" || step.type === "readMany") {
       if (Object.keys(step).some(key => !["type", "path"].includes(key)) || !validateWorkspaceDirectory(step.path)) {
-        throw new Error("Plan directory is outside the language workspace");
+        throw new Error("Plan directory is outside the server workspace or protected");
       }
     } else {
       validateExecutableAction(step);
@@ -64,8 +65,8 @@ function validateExecutableAction(action) {
   }
   if (action.type === "create" || action.type === "edit") {
     if (typeof action.content !== "string" ||
-        Buffer.byteLength(action.content, "utf8") > 65536) {
-      throw new Error("Executable action content must be text up to 64 KiB");
+        Buffer.byteLength(action.content, "utf8") > 262144) {
+      throw new Error("Executable action content must be text up to 256 KiB");
     }
   }
   return action;
