@@ -2,6 +2,7 @@
 
 const express = require("express");
 const BotAccountStatus = require("../models/BotAccountStatus");
+const recoveryQueue = require("../recoveryQueue");
 const router = express.Router();
 
 // Read-only status for the authenticated dashboard Owner.
@@ -20,13 +21,33 @@ router.get("/", async (req, res) => {
         changedAt: record?.changedAt || null
       },
       recovery: {
-        automatedLogin: false,
-        note: "This dashboard does not collect or store Facebook passwords, 2FA codes, or appstate. Complete Facebook security checks manually in the bot's supported login flow."
+        automatedLogin: true,
+        pendingHandoff: false,
+        note: "Submit a fresh appstate cookie for this exact Bot ID. It is held temporarily in memory and delivered once to the connected GoatBot worker. Facebook checkpoints still require manual completion."
       }
     });
   } catch (error) {
     console.error("[Account Status]", error.message);
     return res.status(503).json({ success: false, message: "Unable to retrieve bot account status" });
+  }
+});
+
+ 
+// Owner-only: queue a fresh appstate for the currently logged-out account.
+// The credential is never written to MongoDB, task history, or application logs.
+router.post("/recovery", async (req, res) => {
+  try {
+    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
+    const cookie = req.body.cookie;
+    const record = await BotAccountStatus.findOne({ key: "primary" }).lean();
+    if (!record || record.state !== "logged_out" || record.accountId !== botId) {
+      return res.status(409).json({ success: false, message: "Bot ID must match the currently logged-out account." });
+    }
+    const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
+    return res.status(202).json({ success: true, requestId: queued.requestId, expiresAt: queued.expiresAt,
+      message: "Cookie accepted for one-time delivery. It expires in 2 minutes if the worker does not claim it." });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || "Unable to queue recovery" });
   }
 });
 
