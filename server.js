@@ -23,6 +23,7 @@ const bridgeRoutes = require("./agent/routes/bridge");
 const taskRoutes = require("./agent/routes/tasks");
 const approvalRoutes = require("./agent/routes/approvals");
 const accountStatusRoutes = require("./agent/routes/accountStatus");
+const aiSettingsRoutes = require("./agent/routes/aiSettings");
 const { resumePendingPlans } = require("./agent/planner");
 
 const app = express();
@@ -38,7 +39,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Origin not allowed"));
   },
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST", "PUT"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Agent-Timestamp", "X-Agent-Nonce", "X-Agent-Signature"]
 }));
 
@@ -58,6 +59,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tasks", authenticate, requireOwner, taskRoutes);
 app.use("/api/approvals", authenticate, requireOwner, approvalRoutes);
 app.use("/api/account/status", authenticate, requireOwner, accountStatusRoutes);
+app.use("/api/ai-settings", authenticate, requireOwner, aiSettingsRoutes);
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
 async function bootstrapOwner() {
