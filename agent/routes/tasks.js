@@ -36,7 +36,29 @@ router.get("/", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
-    return res.json({ success: true, tasks });
+    const summarizedTasks = tasks.map(task => {
+      if (typeof task.result !== "string") return task;
+      let parsed;
+      try { parsed = JSON.parse(task.result); } catch {
+        return { ...task, result: task.result.slice(0, 12000) };
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { ...task, result: JSON.stringify(parsed).slice(0, 12000) };
+      }
+      const files = Array.isArray(parsed.downloadableFiles)
+        ? parsed.downloadableFiles
+            .filter(file => file && typeof file.path === "string")
+            .slice(0, 20)
+            .map(file => ({ path: file.path }))
+        : [];
+      let output = parsed.output !== undefined ? parsed.output : parsed;
+      const serializedOutput = typeof output === "string" ? output : JSON.stringify(output);
+      if (Buffer.byteLength(serializedOutput || "", "utf8") > 12000) {
+        output = String(serializedOutput).slice(0, 12000) + "… [preview truncated]";
+      }
+      return { ...task, result: JSON.stringify({ output, downloadableFiles: files }) };
+    });
+    return res.json({ success: true, tasks: summarizedTasks });
   } catch (error) {
     console.error("[Task List]", error.message);
     return res.status(500).json({ success: false, message: "Unable to retrieve tasks" });
