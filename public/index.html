@@ -27,7 +27,8 @@
       <div class="toolbar"><h2>Overview</h2><button id="refreshBtn" class="secondary">Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div>
       <div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
       <section class="panel" id="accountPanel">
-        <div class="sectionHead"><h2>Facebook Account Monitor</h2><span id="accountState" class="status">Checking…</span></div>
+        <div class="sectionHead"><h2>Facebook Account Monitor</h2></div>
+        <div class="actions statusRow"><span class="muted">GoatBot Worker</span><span id="workerState" class="status">Checking…</span><span class="muted">Facebook Session</span><span id="accountState" class="status">Checking…</span></div>
         <p id="accountMessage" class="muted">Waiting for the bot to report its session status.</p>
         <div class="meta">Account: <strong id="accountId">Not reported</strong> · Last heartbeat: <span id="accountHeartbeat">—</span></div>
         <p id="recoveryNote" class="muted">This dashboard never stores Facebook passwords, 2FA codes, or appstate. Security checkpoints must be completed manually.</p>
