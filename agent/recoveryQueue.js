@@ -28,7 +28,7 @@ function normalizeCookie(value, botId) {
     if (typeof item.domain !== "string" || !item.domain.trim()) {
       throw new Error("Each cookie must include its Facebook domain");
     }
-    const domain = item.domain.trim().toLowerCase().replace(/^\\./, "");
+    const domain = item.domain.trim().toLowerCase().replace(/^\./, "");
     if (domain !== "facebook.com" && !domain.endsWith(".facebook.com")) {
       throw new Error("Cookie contains a non-Facebook domain");
     }
@@ -46,7 +46,7 @@ function normalizeCookie(value, botId) {
 }
 
 function submit({ botId, cookie, ownerId }) {
-  if (typeof botId !== "string" || !/^\\d{5,30}$/.test(botId.trim())) throw new Error("A valid numeric Bot ID is required");
+  if (typeof botId !== "string" || !/^\d{5,30}$/.test(botId.trim())) throw new Error("A valid numeric Bot ID is required");
   const secret = normalizeCookie(cookie, botId.trim());
   const id = crypto.randomBytes(24).toString("hex");
   const now = Date.now();
