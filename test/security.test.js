@@ -76,6 +76,7 @@ test("executable action schema matches the server-side workspace executor", () =
   assert.equal(security.validateExecutableAction({
     type: "update", manager: "npm-update"
   }).type, "update");
+  assert.equal(security.validateExecutableAction({ type: "restart" }).type, "restart");
   assert.throws(() => security.validateExecutableAction({ type: "install", manager: "shell" }), /approved npm/);
   assert.equal(security.validateExecutableAction({
     type: "edit", path: "scripts/cmds/admin.js", content: "x"
