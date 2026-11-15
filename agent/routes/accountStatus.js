@@ -33,6 +33,13 @@ router.get("/", async (req, res) => {
 });
 
  
+// Owner-only: read progress for a recovery request. Never returns credentials.
+router.get("/recovery/:requestId", (req, res) => {
+  const status = recoveryQueue.getStatus(req.params.requestId, req.user.id);
+  if (!status) return res.status(404).json({ success: false, message: "Recovery request not found" });
+  return res.json({ success: true, recovery: status });
+});
+
 // Owner-only: queue a fresh appstate for the currently logged-out account.
 // The credential is never written to MongoDB, task history, or application logs.
 router.post("/recovery", async (req, res) => {
