@@ -36,7 +36,7 @@
           <p class="muted">Only submit a fresh session cookie for the Bot ID shown above. It is sent once to Railway and is not saved in task history.</p>
           <form id="recoveryForm">
             <label>Bot ID<input id="recoveryBotId" inputmode="numeric" autocomplete="off" maxlength="30" required></label>
-            <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="4" autocomplete="off" autocapitalize="off" spellcheck="false" required></textarea></label>
+            <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the complete account.txt JSON array here (not key=value; format)." required></textarea><small class="muted">Use the same full JSON array format as account.txt. Keep every cookie object and its metadata; c_user must match the Bot ID above.</small></label>
             <div class="actions"><button id="submitRecovery" type="submit">Send secure recovery</button><span id="recoveryMessage" class="muted" role="status"></span></div>
           </form>
         </div>
