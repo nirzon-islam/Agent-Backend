@@ -10,6 +10,8 @@ const { planTask } = require("../planner");
 
 const ALLOWED_TYPES = new Set([
   "read",
+  "list",
+  "readMany",
   "create",
   "edit",
   "delete",
