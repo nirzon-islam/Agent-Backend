@@ -10,7 +10,16 @@
     return data;
   }
   function safe(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[ch])); }
-  function showApp(yes) { $("loginPanel").hidden = yes; $("appPanel").hidden = !yes; $("connection").textContent = yes ? "Authenticated" : "Offline"; }
+  function showApp(yes) { $("loginPanel").hidden = yes; $("appPanel").hidden = !yes; $("connection").textContent = yes ? "Connected" : "Offline"; $("connection").className = "pill " + (yes ? "pill-good" : ""); }
+  function feedback(id, message, kind = "info") {
+    const el = $(id); el.textContent = message; el.className = "feedback " + kind;
+    el.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
+  }
+  function busy(button, yes, busyText, idleText) {
+    button.disabled = yes; button.classList.toggle("is-loading", yes);
+    button.textContent = yes ? busyText : idleText;
+    button.setAttribute("aria-busy", String(yes));
+  }
   let previousAccountState = "";
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
@@ -34,14 +43,14 @@
     $("notificationMessage").textContent = permission === "granted" ? "Browser alerts enabled." : "Notification permission was not granted.";
   });
   $("loginForm").addEventListener("submit", async event => {
-    event.preventDefault(); $("loginMessage").textContent = "Signing in…";
+    event.preventDefault(); feedback("loginMessage", "Signing in…", "info");
     try {
       const response = await fetch("/api/auth/login", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({username:$("username").value,password:$("password").value}) });
       const data = await response.json();
       if (!response.ok || !data.token) throw new Error(data.message || "Login failed");
       token = data.token; sessionStorage.setItem("agent_owner_token", token); $("password").value = "";
       showApp(true); await refresh();
-    } catch(error) { $("loginMessage").textContent = error.message; }
+    } catch(error) { feedback("loginMessage", error.message, "error"); }
   });
   function renderApprovals(items) {
     $("pendingCount").textContent = items.length;
@@ -79,10 +88,10 @@
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
       renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
       await refreshAccountStatus();
-      $("connection").textContent = "Connected";
+      $("connection").textContent = "Connected"; $("connection").className = "pill pill-good";
     } catch(error) {
       if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
-      $("connection").textContent = "Error"; $("loginMessage").textContent = error.message;
+      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad"; feedback("loginMessage", error.message, "error");
     }
   }
 
@@ -92,19 +101,19 @@
     const botId = $("recoveryBotId").value.trim();
     const cookie = $("recoveryCookie").value;
     if (!botId || !cookie.trim()) return;
-    button.disabled = true;
-    $("recoveryMessage").textContent = "Sending one-time recovery handoff…";
+    busy(button, true, "Sending securely…", "Send secure recovery");
+    feedback("recoveryMessage", "Sending one-time recovery handoff…", "loading");
     try {
       const result = await api("/api/account/status/recovery", {
         method: "POST",
         body: JSON.stringify({ botId, cookie })
       });
       $("recoveryCookie").value = "";
-      $("recoveryMessage").textContent = result.message || "Recovery handoff queued.";
+      feedback("recoveryMessage", (result.message || "Recovery handoff queued.") + " Keep this page open and check the bot status.", "success");
       await refreshAccountStatus();
     } catch (error) {
-      $("recoveryMessage").textContent = error.message;
-    } finally { button.disabled = false; }
+      feedback("recoveryMessage", error.message, "error");
+    } finally { busy(button, false, "Sending securely…", "Send secure recovery"); }
   });
 
   $("requestForm").addEventListener("submit", async event => {
@@ -112,22 +121,22 @@
     const button = $("submitRequest");
     const description = $("requestDescription").value.trim();
     if (description.length < 3) return;
-    button.disabled = true;
-    $("requestMessage").textContent = "AI is planning your request…";
+    busy(button, true, "Sending to AI…", "Ask AI to plan");
+    feedback("requestMessage", "Sending request to AI planner…", "loading");
     try {
       const response = await api("/api/tasks/", {
         method: "POST",
         body: JSON.stringify({ description })
       });
       $("requestDescription").value = "";
-      $("requestMessage").textContent = response.task?.status === "awaiting_approval"
+      feedback("requestMessage", response.task?.status === "awaiting_approval"
         ? "AI plan ready — sent to your Approval Queue."
-        : (response.message || "Request received.");
+        : (response.message || "Request received."), response.task?.status === "failed" ? "error" : "success");
       await refresh();
     } catch (error) {
-      $("requestMessage").textContent = error.message;
+      feedback("requestMessage", error.message, "error");
     } finally {
-      button.disabled = false;
+      busy(button, false, "Sending to AI…", "Ask AI to plan");
     }
   });
   $("approvals").addEventListener("click", async event => {
