@@ -138,6 +138,18 @@ async function generatePlan(description) {
     : (lastProviderError?.message || "All configured AI providers failed"));
 }
 
+function schedulePlanTask(taskId, source) {
+  if (typeof taskId !== "string" || !taskId || taskId.length > 128) {
+    throw new Error("Invalid task ID for background planning");
+  }
+  setImmediate(() => {
+    planTask(taskId).catch(error => {
+      console.error("[Planner Background] " + String(source || "unknown") + " task " + taskId + ": " +
+        String(error && error.message || error).slice(0, 700));
+    });
+  });
+}
+
 async function planTask(taskId) {
   const task = await Task.findOneAndUpdate(
     { taskId, source: { $in: ["messenger", "website"] }, status: "pending", approvalId: null },
@@ -168,4 +180,4 @@ async function planTask(taskId) {
   }
 }
 
-module.exports = { generatePlan, planTask };
+module.exports = { generatePlan, planTask, schedulePlanTask };
