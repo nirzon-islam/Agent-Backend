@@ -13,7 +13,7 @@ const MAX_PLAN_STEPS = 12;
 
 function validateWorkspaceDirectory(value) {
   return typeof value === "string" && value.length <= 200 &&
-    /^languages(?:\/[A-Za-z0-9_-]+)*$/.test(value) &&
+    /^(?:languages|scripts\/(?:cmds|events))(?:\/[A-Za-z0-9_-]+)*$/.test(value) &&
     !value.split("/").some(part => [".", "..", "node_modules", "secrets", "cache"].includes(part));
 }
 
@@ -55,7 +55,7 @@ function validateExecutableAction(action) {
     throw new Error("Executable action has an invalid shape");
   }
   if (typeof action.path !== "string" || action.path.length > 300 ||
-      !/^languages\/(?!\.|.*\/\.)(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:lang|js)$/.test(action.path) ||
+      !/^(?:languages|scripts\/(?:cmds|events))\/(?!\.|.*\/\.)(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:lang|js)$/.test(action.path) ||
       action.path.split("/").some(part => ["..", ".", "node_modules", "secrets", "cache"].includes(part))) {
     throw new Error("Executable action path is outside the language workspace");
   }
