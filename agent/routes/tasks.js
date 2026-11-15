@@ -13,6 +13,8 @@ const ALLOWED_TYPES = new Set([
   "create",
   "edit",
   "delete",
+  "restore",
+  "move",
   "install",
   "test",
   "update"
