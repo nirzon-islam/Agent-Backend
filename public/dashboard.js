@@ -67,7 +67,7 @@
       const link = document.createElement("a");
       link.href = url;
       link.download = button.textContent.replace(/^Download /, "").split("/").pop() || "agent-file.txt";
-      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+      document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) { alert(error.message); }
     finally { button.disabled = false; }
   });
