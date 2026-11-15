@@ -22,7 +22,9 @@
   }
 
   const aiSlotNames = ["main","fallback","backup"];
-  let aiSettingsLoaded = false;\n  async function loadAISettings() {\n    if (aiSettingsLoaded) return;
+  let aiSettingsLoaded = false;
+  async function loadAISettings() {
+    if (aiSettingsLoaded) return;
     const data = await api("/api/ai-settings/");
     for (const name of aiSlotNames) {
       const slot = data.slots?.[name] || {};
@@ -34,6 +36,7 @@
       $("ai-"+name+"-clear").checked = false;
       $("ai-"+name+"-hint").textContent = slot.configured ? "Saved key ••••"+(slot.keyHint || "") : "No key saved";
     }
+    aiSettingsLoaded = true;
   }
   $("saveAISettings").addEventListener("click", async () => {
     const button=$("saveAISettings"); busy(button,true,"Saving…","Save AI Settings");
@@ -65,7 +68,8 @@
     } catch(error) { feedback("aiSettingsMessage",slot+" test failed: "+error.message,"error"); }
     finally { button.disabled=false; }
   });
-\n  let previousAccountState = "";
+
+  let previousAccountState = "";
   let activeRecoveryRequestId = "";
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
