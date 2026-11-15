@@ -46,10 +46,7 @@ router.post("/recovery", async (req, res) => {
   try {
     const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     const cookie = req.body.cookie;
-    const record = await BotAccountStatus.findOne({ key: "primary" }).lean();
-    if (!record || !["logged_out", "error", "unknown"].includes(record.state) || !record.lastHeartbeatAt || Date.now() - new Date(record.lastHeartbeatAt).getTime() > 90 * 1000 || record.accountId !== botId) {
-      return res.status(409).json({ success: false, message: "Bot ID must match the currently logged-out account." });
-    }
+    if (!/^\\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID." });
     const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
     return res.status(202).json({ success: true, requestId: queued.requestId, expiresAt: queued.expiresAt,
       message: "Cookie accepted for one-time delivery. It expires in 2 minutes if the worker does not claim it." });
