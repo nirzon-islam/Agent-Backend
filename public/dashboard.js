@@ -20,7 +20,52 @@
     button.textContent = yes ? busyText : idleText;
     button.setAttribute("aria-busy", String(yes));
   }
-  let previousAccountState = "";
+
+  const aiSlotNames = ["main","fallback","backup"];
+  async function loadAISettings() {
+    const data = await api("/api/ai-settings/");
+    for (const name of aiSlotNames) {
+      const slot = data.slots?.[name] || {};
+      $("ai-"+name+"-enabled").checked = !!slot.enabled;
+      $("ai-"+name+"-provider").value = slot.provider || "openai-compatible";
+      $("ai-"+name+"-model").value = slot.model || "";
+      $("ai-"+name+"-url").value = slot.baseUrl || "";
+      $("ai-"+name+"-key").value = "";
+      $("ai-"+name+"-clear").checked = false;
+      $("ai-"+name+"-hint").textContent = slot.configured ? "Saved key ••••"+(slot.keyHint || "") : "No key saved";
+    }
+  }
+  $("saveAISettings").addEventListener("click", async () => {
+    const button=$("saveAISettings"); busy(button,true,"Saving…","Save AI Settings");
+    try {
+      const slots={};
+      for (const name of aiSlotNames) slots[name]={
+        enabled:$("ai-"+name+"-enabled").checked,
+        provider:$("ai-"+name+"-provider").value,
+        model:$("ai-"+name+"-model").value.trim(),
+        baseUrl:$("ai-"+name+"-url").value.trim(),
+        apiKey:$("ai-"+name+"-key").value,
+        clearApiKey:$("ai-"+name+"-clear").checked
+      };
+      const result=await api("/api/ai-settings/",{method:"PUT",body:JSON.stringify({slots})});
+      for (const name of aiSlotNames) $("ai-"+name+"-key").value="";
+      feedback("aiSettingsMessage",result.message || "Saved.","success");
+      await loadAISettings();
+    } catch(error) { feedback("aiSettingsMessage",error.message,"error"); }
+    finally { busy(button,false,"Saving…","Save AI Settings"); }
+  });
+  $("aiSettingsPanel").addEventListener("click", async event => {
+    const button=event.target.closest("button[data-ai-test]");
+    if (!button) return;
+    const slot=button.dataset.aiTest;
+    button.disabled=true;
+    try {
+      const result=await api("/api/ai-settings/test",{method:"POST",body:JSON.stringify({slot})});
+      feedback("aiSettingsMessage",result.message,"success");
+    } catch(error) { feedback("aiSettingsMessage",slot+" test failed: "+error.message,"error"); }
+    finally { button.disabled=false; }
+  });
+\n  let previousAccountState = "";
   let activeRecoveryRequestId = "";
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
