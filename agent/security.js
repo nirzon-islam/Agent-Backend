@@ -3,10 +3,10 @@
 const crypto = require("crypto");
 const config = require("./config");
 
-const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "restore", "move", "mkdir", "rmdir", "install", "test", "update", "restart"]);
-const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "delete", "restore", "move", "mkdir", "rmdir", "install", "update", "restart"]);
-const MAX_PLAN_STEPS = 20;
-const PROTECTED_SEGMENTS = new Set([".git", "node_modules", "secrets", "cache", "cookies", "Fca_Database"]);
+const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "test"]);
+const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
+const MAX_PLAN_STEPS = 12;
+const PROTECTED_SEGMENTS = new Set([".git", "node_modules", "secrets", "cache", "cookies", "Fca_Database", "backups", "appstate", "appstates", "sessions", "session", "credentials"]);\nconst ALLOWED_EXTENSIONS = new Set([".js", ".cjs", ".mjs", ".json", ".md", ".txt", ".yml", ".yaml", ".lang", ".html", ".css", ".xml", ".sql", ".sh"]);
 
 function safePath(value) {
   if (typeof value !== "string" || !value.trim() || value.length > 500 || value.includes("\\") || value.startsWith("/") || value.includes("\0")) return false;
@@ -15,7 +15,7 @@ function safePath(value) {
     /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(part) &&
     !PROTECTED_SEGMENTS.has(part) && !part.startsWith(".") &&
     !/^account/i.test(part) && !/^appstate/i.test(part) &&
-    !/^credential/i.test(part) && !/^cookie/i.test(part)
+    !/^credential/i.test(part) && !/^cookie/i.test(part) &&\n    !/(?:appstate|cookie|credential|secret|token|private.?key|account.?txt|session.?store)/i.test(part)
   );
 }
 
@@ -58,12 +58,12 @@ function validateExecutableAction(action) {
     if (action.manager !== "npm-ci" && action.manager !== "npm-update") throw new Error("Only approved npm dependency operations are supported");
     return action;
   }
-  if (!safePath(action.path)) throw new Error("Executable action path is outside the server workspace or protected");
+  if (!safePath(action.path)) throw new Error("Executable action path is outside the server workspace or protected");\n  if (!ALLOWED_EXTENSIONS.has(require("path").posix.extname(action.path).toLowerCase())) throw new Error("File extension is not supported for safe text editing");
   if (action.type === "move" && (!safePath(action.destination) || action.destination === action.path)) throw new Error("Invalid move destination");
   if (action.type === "restore" && (typeof action.backupId !== "string" || !/^[a-f0-9]{64}$/.test(action.backupId))) throw new Error("Invalid backup identifier");
   if (action.type === "test" && !action.path.endsWith(".js")) throw new Error("Syntax test supports JavaScript files only");
   if (action.type === "create" || action.type === "edit") {
-    if (typeof action.content !== "string" || Buffer.byteLength(action.content, "utf8") > 262144) throw new Error("Executable action content must be text up to 256 KiB");
+    if (typeof action.content !== "string" || Buffer.byteLength(action.content, "utf8") > 65536) throw new Error("Executable action content must be text up to 256 KiB");
   }
   return action;
 }
