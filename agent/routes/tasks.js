@@ -74,7 +74,14 @@ router.post("/", async (req, res) => {
 // Download a text file created or restored by the GoatBot server worker.
 router.get("/:taskId/files/:fileIndex", async (req, res) => {
   try {
-    const task = await Task.findOne({ taskId: req.params.taskId, requestedBy: String(req.user.id), status: "completed" }).select("result").lean();
+    const task = await Task.findOne({
+      taskId: req.params.taskId,
+      status: "completed",
+      $or: [
+        { requestedBy: String(req.user.id), source: "website" },
+        { source: "messenger", requestedBy: /^messenger:/ }
+      ]
+    }).select("result").lean();
     if (!task || typeof task.result !== "string") return res.status(404).json({ success: false, message: "Download not found" });
     let payload;
     try { payload = JSON.parse(task.result); } catch { payload = null; }
