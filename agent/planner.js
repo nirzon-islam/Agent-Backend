@@ -8,7 +8,6 @@ function providerError(provider, response, data) {
     (detail ? ": " + String(detail).slice(0, 500) : ""));
 }
 
-const config = require("./config");
 const security = require("./security");
 const Task = require("./models/Task");
 const { requestApproval } = require("./approval");
@@ -32,73 +31,12 @@ function extractJson(text) {
   return parsed;
 }
 
-async function requestGemini(prompt, provider) {
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
-    encodeURIComponent(provider.model) + ":generateContent?key=" + encodeURIComponent(provider.apiKey);
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 8192 }
-    }),
-    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw providerError("Gemini", response, data);
-  return data.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
-}
-
-async function requestOpenAICompatible(url, apiKey, model, prompt, providerName) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { authorization: "Bearer " + apiKey, "content-type": "application/json" },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      max_tokens: 8192,
-      response_format: { type: "json_object" },
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }]
-    }),
-    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw providerError(providerName, response, data);
-  return data.choices?.[0]?.message?.content || "";
-}
-
-async function requestCloudflare(prompt, provider) {
-  const url = "https://api.cloudflare.com/client/v4/accounts/" +
-    encodeURIComponent(provider.accountId) + "/ai/run/" + encodeURIComponent(provider.model);
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { authorization: "Bearer " + provider.apiToken, "content-type": "application/json" },
-    body: JSON.stringify({
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 8192
-    }),
-    signal: AbortSignal.timeout(PLANNER_TIMEOUT_MS)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.success === false) throw providerError("Cloudflare", response, data);
-  return data.result?.response || data.result?.choices?.[0]?.message?.content || "";
-}
-
 async function configuredProviders() {
   const selected = await aiProviders.getConfiguredSlots();
-  if (selected.length) return selected.map(slot => ({
+  return selected.map(slot => ({
     name: slot.name + " (" + slot.provider + "/" + slot.model + ")",
     run: prompt => aiProviders.callProvider(slot, prompt, PLANNER_TIMEOUT_MS, SYSTEM_PROMPT)
   }));
-  const p = config.ai.providers;
-  const providers = [];
-  if (p.gemini.apiKey) providers.push({ name:"Gemini (environment)", run:prompt=>requestGemini(prompt,p.gemini) });
-  if (p.groq.apiKey) providers.push({ name:"Groq (environment)", run:prompt=>requestOpenAICompatible("https://api.groq.com/openai/v1/chat/completions",p.groq.apiKey,p.groq.model,prompt,"Groq") });
-  if (p.cloudflare.accountId && p.cloudflare.apiToken && p.cloudflare.model) providers.push({ name:"Cloudflare (environment)", run:prompt=>requestCloudflare(prompt,p.cloudflare) });
-  return providers;
 }
 
 async function generatePlan(description) {
