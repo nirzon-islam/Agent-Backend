@@ -381,4 +381,43 @@ router.post("/account-status", async (req, res) => {
   }
 });
 
+ 
+// One-time recovery handoff. Credentials are held only in process memory and
+// delivered once to the Railway worker over the signed HTTPS bridge.
+router.post("/recovery/claim", async (req, res) => {
+  try {
+    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
+    if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID" });
+    const current = await BotAccountStatus.findOne({ key: "primary" }).lean();
+    if (!current || current.state !== "logged_out" || current.accountId !== botId) {
+      return res.json({ success: true, recovery: null });
+    }
+    const recoveryQueue = require("../recoveryQueue");
+    const recovery = recoveryQueue.claim(botId);
+    return res.json({ success: true, recovery });
+  } catch (error) {
+    console.error("[Bridge Recovery Claim]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to check recovery queue" });
+  }
+});
+
+router.post("/recovery/result", async (req, res) => {
+  try {
+    const state = req.body && req.body.state;
+    const allowed = new Set(["online", "logged_out", "checkpoint", "error"]);
+    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
+    const message = typeof req.body.message === "string" ? req.body.message.slice(0, 300) : "";
+    if (!/^\d{5,30}$/.test(botId) || !allowed.has(state)) {
+      return res.status(400).json({ success: false, message: "Invalid recovery result" });
+    }
+    await BotAccountStatus.findOneAndUpdate({ key: "primary", accountId: botId }, {
+      $set: { state, message: message || null, lastHeartbeatAt: new Date() }
+    }, { new: true });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[Bridge Recovery Result]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to save recovery result" });
+  }
+});
+
 module.exports = router;
