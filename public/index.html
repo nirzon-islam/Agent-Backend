@@ -31,6 +31,15 @@
         <p id="accountMessage" class="muted">Waiting for the bot to report its session status.</p>
         <div class="meta">Account: <strong id="accountId">Not reported</strong> · Last heartbeat: <span id="accountHeartbeat">—</span></div>
         <p id="recoveryNote" class="muted">This dashboard never stores Facebook passwords, 2FA codes, or appstate. Security checkpoints must be completed manually.</p>
+        <div id="recoveryFormPanel" hidden>
+          <h3>Restore GoatBot Session</h3>
+          <p class="muted">Only submit a fresh session cookie for the Bot ID shown above. It is sent once to Railway and is not saved in task history.</p>
+          <form id="recoveryForm">
+            <label>Bot ID<input id="recoveryBotId" inputmode="numeric" autocomplete="off" maxlength="30" required></label>
+            <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="4" autocomplete="off" autocapitalize="off" spellcheck="false" required></textarea></label>
+            <div class="actions"><button id="submitRecovery" type="submit">Send secure recovery</button><span id="recoveryMessage" class="muted" role="status"></span></div>
+          </form>
+        </div>
         <button id="enableNotifications" class="secondary" type="button">Enable browser alerts</button>
         <span id="notificationMessage" class="muted" role="status"></span>
       </section>
