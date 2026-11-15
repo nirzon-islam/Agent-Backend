@@ -14,13 +14,6 @@ const config = {
     username: (process.env.ADMIN_USERNAME || "").trim().toLowerCase(),
     password: process.env.ADMIN_PASSWORD || ""
   },
-  ai: {
-    providers: {
-      gemini: { enabled: true, apiKey: process.env.GEMINI_API_KEY || "", model: process.env.GEMINI_MODEL || "gemini-2.5-flash" },
-      groq: { enabled: true, apiKey: process.env.GROQ_API_KEY || "", model: process.env.GROQ_MODEL || "openai/gpt-oss-120b" },
-      cloudflare: { enabled: true, accountId: process.env.CLOUDFLARE_ACCOUNT_ID || "", apiToken: process.env.CLOUDFLARE_API_TOKEN || "", model: process.env.CLOUDFLARE_MODEL || "" }
-    }
-  },
   bridge: {
     enabled: process.env.BRIDGE_ENABLED === "true",
     secret: process.env.BRIDGE_SECRET || "",
