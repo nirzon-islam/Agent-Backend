@@ -106,4 +106,20 @@ function claim(botId) {
   return null;
 }
 
-module.exports = { submit, claim, normalizeCookie, reportProgress, getStatus };
+function claimNext() {
+  const now = Date.now();
+  for (const [key, item] of queue) {
+    if (item.expiresAt <= now) { queue.delete(key); continue; }
+    if (!item.claimed) {
+      item.claimed = true;
+      const result = { requestId: item.id, botId: item.botId, cookie: item.cookie };
+      const meta = history.get(item.id);
+      if (meta) addEvent(meta, "claimed", "Worker securely claimed the appstate");
+      queue.delete(key);
+      return result;
+    }
+  }
+  return null;
+}
+
+module.exports = { submit, claim, claimNext, normalizeCookie, reportProgress, getStatus };
