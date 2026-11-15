@@ -1,6 +1,6 @@
 "use strict";
 
-const PLANNER_TIMEOUT_MS = 90000;
+const PLANNER_TIMEOUT_MS = 5 * 60 * 1000;
 
 function providerError(provider, response, data) {
   const detail = data?.error?.message || data?.message || data?.errors?.[0]?.message;
