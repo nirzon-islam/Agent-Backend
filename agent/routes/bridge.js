@@ -421,10 +421,10 @@ router.post("/recovery/result", async (req, res) => {
     if (!/^\d{5,30}$/.test(botId) || !allowed.has(state)) {
       return res.status(400).json({ success: false, message: "Invalid recovery result" });
     }
-    await BotAccountStatus.findOneAndUpdate({ key: "primary" }, {
-      $set: { state, accountId: botId, message: message || null, lastHeartbeatAt: new Date(), changedAt: new Date() },
-      $setOnInsert: { key: "primary" }
-    }, { new: true, upsert: true, runValidators: true });
+    const update = { $set: { state, message: message || null, lastHeartbeatAt: new Date(), changedAt: new Date() },
+      $setOnInsert: { key: "primary" } };
+    if (state === "online") update.$set.accountId = botId;
+    await BotAccountStatus.findOneAndUpdate({ key: "primary" }, update, { new: true, upsert: true, runValidators: true });
     return res.json({ success: true });
   } catch (error) {
     console.error("[Bridge Recovery Result]", error.message);
