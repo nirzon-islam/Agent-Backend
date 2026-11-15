@@ -405,7 +405,7 @@ router.post("/recovery/progress", (req, res) => {
   try {
     const { requestId, botId, state, message } = req.body || {};
     if (typeof requestId !== "string" || !/^[a-f0-9]{48}$/.test(requestId) ||
-        typeof botId !== "string" || !/^\\d{5,30}$/.test(botId) ||
+        typeof botId !== "string" || !/^\d{5,30}$/.test(botId) ||
         typeof state !== "string" || typeof message !== "string") {
       return res.status(400).json({ success: false, message: "Invalid recovery progress payload" });
     }
