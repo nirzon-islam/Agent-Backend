@@ -25,19 +25,22 @@
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
     const account = data.account || {};
-    const state = account.state || "unknown";
-    const labels = { online: "Online", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Not connected" };
-    $("accountState").textContent = labels[state] || state;
-    $("accountState").className = "status " + (state === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(state) ? "state-bad" : ""));
-    $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
+    const sessionState = account.sessionState || account.state || "unknown";
+    const workerState = account.workerState || "unknown";
+    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Unknown" };
+    const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown" };
+    $("workerState").textContent = workerLabels[workerState] || workerState;
+    $("workerState").className = "status " + (workerState === "online" ? "state-good" : (workerState === "offline" ? "state-bad" : ""));
+    $("accountState").textContent = sessionLabels[sessionState] || sessionState;
+    $("accountState").className = "status " + (sessionState === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(sessionState) ? "state-bad" : ""));
+    $("accountMessage").textContent = account.message || (sessionState === "online" ? "Facebook authentication is active." : "Facebook authentication is not confirmed.");
     $("accountId").textContent = account.accountId || "Not reported";
     if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
-    // Keep recovery available even while the current session reports online: this flow refreshes the same Bot ID session.
     $("recoveryFormPanel").hidden = false;
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
-    if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
-    previousAccountState = state;
+    if (previousAccountState && previousAccountState !== sessionState && sessionState !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot session: " + (sessionLabels[sessionState] || sessionState) });
+    previousAccountState = sessionState;
   }
   $("enableNotifications").addEventListener("click", async () => {
     if (!("Notification" in window)) { $("notificationMessage").textContent = "Browser notifications are not supported."; return; }
