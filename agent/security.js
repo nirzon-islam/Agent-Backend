@@ -53,6 +53,7 @@ function validateExecutableAction(action) {
   if (Object.keys(action).some(key => !required.includes(key)) || required.some(key => !Object.prototype.hasOwnProperty.call(action, key))) {
     throw new Error("Executable action has an invalid shape");
   }
+  if (action.type === "restart") return action;
   if (["install", "update"].includes(action.type)) {
     if (action.manager !== "npm-ci" && action.manager !== "npm-update") throw new Error("Only approved npm dependency operations are supported");
     return action;
