@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const config = require("./config");
 
 const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "test"]);
-const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test"]);
+const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "list", "readMany"]);
 const MAX_PLAN_STEPS = 12;
 const PROTECTED_SEGMENTS = new Set([".git", "node_modules", "secrets", "cache", "cookies", "Fca_Database", "backups", "appstate", "appstates", "sessions", "session", "credentials"]);
 const ALLOWED_EXTENSIONS = new Set([".js", ".cjs", ".mjs", ".json", ".md", ".txt", ".yml", ".yaml", ".lang", ".html", ".css", ".xml", ".sql", ".sh"]);
@@ -46,6 +46,12 @@ function validateExecutablePlan(plan) {
 function validateExecutableAction(action) {
   if (!action || typeof action !== "object" || Array.isArray(action) || Object.getPrototypeOf(action) !== Object.prototype) throw new Error("Invalid executable action");
   if (!EXECUTABLE_ACTION_TYPES.has(action.type)) throw new Error("Unsupported executable action type");
+  if (action.type === "list" || action.type === "readMany") {
+    if (Object.keys(action).some(key => !["type", "path"].includes(key)) || !validateWorkspaceDirectory(action.path)) {
+      throw new Error("Directory action is outside the server workspace or protected");
+    }
+    return action;
+  }
   const required = {
     create: ["type", "path", "content"], edit: ["type", "path", "content"],
     read: ["type", "path"], test: ["type", "path"], delete: ["type", "path"],
@@ -66,7 +72,7 @@ function validateExecutableAction(action) {
   if (action.type === "restore" && (typeof action.backupId !== "string" || !/^[a-f0-9]{64}$/.test(action.backupId))) throw new Error("Invalid backup identifier");
   if (action.type === "test" && !action.path.endsWith(".js")) throw new Error("Syntax test supports JavaScript files only");
   if (action.type === "create" || action.type === "edit") {
-    if (typeof action.content !== "string" || Buffer.byteLength(action.content, "utf8") > 65536) throw new Error("Executable action content must be text up to 256 KiB");
+    if (typeof action.content !== "string" || Buffer.byteLength(action.content, "utf8") > 65536) throw new Error("Executable action content must be text up to 64 KiB");
   }
   return action;
 }
