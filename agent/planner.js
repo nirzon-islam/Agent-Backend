@@ -180,4 +180,19 @@ async function planTask(taskId) {
   }
 }
 
-module.exports = { generatePlan, planTask, schedulePlanTask };
+async function resumePendingPlans() {
+  const staleBefore = new Date(Date.now() - 15 * 60 * 1000);
+  await Task.updateMany(
+    { source: { $in: ["messenger", "website"] }, status: "analyzing", updatedAt: { $lt: staleBefore }, approvalId: null },
+    { $set: { status: "pending" } }
+  );
+  const pending = await Task.find({
+    source: { $in: ["messenger", "website"] },
+    status: "pending",
+    approvalId: null
+  }).select("taskId source").limit(100).lean();
+  for (const task of pending) schedulePlanTask(task.taskId, "startup-resume");
+  return pending.length;
+}
+
+module.exports = { generatePlan, planTask, schedulePlanTask, resumePendingPlans };
