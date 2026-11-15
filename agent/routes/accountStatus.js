@@ -14,9 +14,11 @@ router.get("/", async (req, res) => {
     return res.json({
       success: true,
       account: {
-        state: stale ? "unknown" : record.state,
+        state: stale ? "unknown" : (record.sessionState || record.state || "unknown"),
+        sessionState: stale ? "unknown" : (record.sessionState || record.state || "unknown"),
+        workerState: stale ? "offline" : (record.workerState || "online"),
         accountId: record?.accountId || null,
-        message: stale ? "Bot heartbeat is missing or stale. Bot-side status reporting must be connected." : (record.message || null),
+        message: stale ? "GoatBot worker heartbeat is missing or stale." : (record.message || null),
         lastHeartbeatAt,
         changedAt: record?.changedAt || null
       },
