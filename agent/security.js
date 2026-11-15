@@ -20,7 +20,7 @@ function safePath(value) {
 }
 
 function validateWorkspaceDirectory(value) {
-  return safePath(value) && value.length <= 300;
+  return value === "." || (safePath(value) && value.length <= 300);
 }
 
 function validateExecutablePlan(plan) {
