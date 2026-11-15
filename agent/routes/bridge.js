@@ -436,15 +436,18 @@ router.post("/result", async (req, res) => {
 // Railway bot reports account/session health using the signed service bridge.
 router.post("/account-status", async (req, res) => {
   try {
-    const state = typeof req.body.state === "string" ? req.body.state : "";
-    const allowed = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
+    const legacyState = typeof req.body.state === "string" ? req.body.state : "";
+    const sessionState = typeof req.body.sessionState === "string" ? req.body.sessionState : legacyState;
+    const workerState = typeof req.body.workerState === "string" ? req.body.workerState : "online";
+    const allowedSessions = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
+    const allowedWorkers = new Set(["online", "offline", "unknown"]);
     const accountId = typeof req.body.accountId === "string" ? req.body.accountId.trim().slice(0, 128) : "";
     const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 500) : "";
-    if (!allowed.has(state)) return res.status(400).json({ success: false, message: "Invalid account state" });
+    if (!allowedSessions.has(sessionState) || !allowedWorkers.has(workerState)) return res.status(400).json({ success: false, message: "Invalid worker or Facebook session state" });
     const now = new Date();
     const record = await BotAccountStatus.findOneAndUpdate(
       { key: "primary" },
-      { $set: { state, accountId: accountId || null, message: message || null, lastHeartbeatAt: now },
+      { $set: { state: sessionState, sessionState, workerState, accountId: accountId || null, message: message || null, lastHeartbeatAt: now },
         $setOnInsert: { key: "primary" } },
       { new: true, upsert: true, runValidators: true }
     ).lean();
