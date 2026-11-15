@@ -1,4 +1,3 @@
-
 # 🤖 Agent Backend by NirZon
 
 ### A Secure AI-Powered Autonomous Coding Assistant for GoatBot Messenger
@@ -24,6 +23,7 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
 - ↩️ Rollback Support
 - 📋 Task History and Activity Logs
 - 🔗 Secure Railway-to-Render Communication
+- 🔄 **Facebook ID Reconnection** — Reconnect the GoatBot Facebook account through the Agent interface by securely providing updated login/session information, including a refreshed session cookie (AppState), with verification before the bot resumes.
 
 ---
 
@@ -83,6 +83,7 @@ Security is a core part of this project.
 - Secure API communication.
 - Task and approval tracking.
 - Rollback support for recoverable changes.
+- Facebook login credentials and session cookies must be handled securely, never exposed in logs or task history, and used only for the explicitly approved reconnection process.
 
 > **The agent must never independently execute destructive or sensitive operations without authorization.**
 
@@ -115,6 +116,7 @@ Security is a core part of this project.
 - [ ] Website Interface
 - [ ] Railway Runtime Bridge
 - [ ] Messenger Integration
+- [ ] Facebook ID Reconnection Flow
 - [ ] Backup and Rollback Engine
 - [ ] Full Security Testing
 
@@ -127,6 +129,7 @@ Security is a core part of this project.
 - Free AI providers have rate limits.
 - Persistent database storage is required for reliable task history.
 - Facebook authentication and session recovery may require manual verification.
+- Facebook ID reconnection depends on valid, current login/session information and may require completing Facebook security checks or checkpoints.
 
 ---
 
