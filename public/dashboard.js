@@ -47,8 +47,31 @@
   }
   function renderTasks(items) {
     $("taskCount").textContent = items.length;
-    $("tasks").innerHTML = items.length ? items.map(task => `<article class="item"><div class="itemTop"><strong>${safe(task.type)} • ${safe(task.status)}</strong><span class="status">${safe(task.source)}</span></div><p>${safe(task.description)}</p><div class="meta">Task ID: ${safe(task.taskId)} • ${safe(new Date(task.createdAt).toLocaleString())}</div>${task.error ? `<p class="message">${safe(task.error)}</p>` : ""}${task.result ? `<pre>${safe(typeof task.result === "string" ? task.result : JSON.stringify(task.result,null,2))}</pre>` : ""}</article>`).join("") : '<p class="muted">No tasks yet. Send a request with !agent in Messenger.</p>';
+    $("tasks").innerHTML = items.length ? items.map(task => {
+      let parsed = null;
+      try { parsed = typeof task.result === "string" ? JSON.parse(task.result) : task.result; } catch {}
+      const files = Array.isArray(parsed?.downloadableFiles) ? parsed.downloadableFiles : [];
+      const displayResult = parsed?.output !== undefined ? parsed.output : task.result;
+      return `<article class="item"><div class="itemTop"><strong>${safe(task.type)} • ${safe(task.status)}</strong><span class="status">${safe(task.source)}</span></div><p>${safe(task.description)}</p><div class="meta">Task ID: ${safe(task.taskId)} • ${safe(new Date(task.createdAt).toLocaleString())}</div>${task.error ? `<p class="message">${safe(task.error)}</p>` : ""}${displayResult ? `<pre>${safe(typeof displayResult === "string" ? displayResult : JSON.stringify(displayResult,null,2))}</pre>` : ""}${files.map((file,index) => `<button class="downloadFile" data-task="${safe(task.taskId)}" data-index="${index}">Download ${safe(file.path)}</button>`).join(" ")}</article>`;
+    }).join("") : '<p class="muted">No tasks yet. Send a request with !agent in Messenger.</p>';
   }
+  $("tasks").addEventListener("click", async event => {
+    const button = event.target.closest("button.downloadFile");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/tasks/" + encodeURIComponent(button.dataset.task) + "/files/" + button.dataset.index, { headers: headers() });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message || "Download failed"); }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = button.textContent.replace(/^Download /, "").split("/").pop() || "agent-file.txt";
+      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    } catch (error) { alert(error.message); }
+    finally { button.disabled = false; }
+  });
+
   async function refresh() {
     try {
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
