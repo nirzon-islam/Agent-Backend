@@ -22,7 +22,7 @@
     $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
     $("accountId").textContent = account.accountId || "Not reported";
     if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
-    $("recoveryFormPanel").hidden = state !== "logged_out";
+    $("recoveryFormPanel").hidden = !["logged_out", "error"].includes(state);
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
     if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
