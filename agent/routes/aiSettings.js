@@ -11,9 +11,9 @@ function safeBaseUrl(value) {
   try { url = new URL(value); } catch { throw new Error("Base URL is invalid."); }
   const host = url.hostname.toLowerCase();
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash ||
-      !host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") ||
-      /^127\.|^10\.|^192\.168\.|^169\.254\.|^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-      host === "::1" || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+      !host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan") || host.endsWith(".home.arpa") ||
+      host.startsWith("[") || /^(?:127\.|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host) ||
+      /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
     throw new Error("Use a public HTTPS provider URL (private/local hosts are blocked).");
   }
   return url.toString().replace(/\/$/, "");
@@ -67,6 +67,10 @@ router.post("/test", async (req, res) => {
     if (!slot?.enabled || !slot.apiKeyEncrypted) return res.status(400).json({ success:false, message:"This slot is not configured and enabled." });
     const result = await testProvider({ ...slot.toObject(), apiKey:crypto.decrypt(slot.apiKeyEncrypted) });
     return res.json({ success:true, message:name + " connection successful.", provider:slot.provider, model:slot.model, response:result });
-  } catch (error) { return res.status(400).json({ success:false, message:String(error.message || "Provider test failed").slice(0,300) }); }
+  } catch (error) {
+    const status = error.code === "AI_ENCRYPTION_KEY_MISSING" ? 503 : 502;
+    return res.status(status).json({ success:false, message:String(error.message || "Provider test failed").slice(0,300) });
+  }
 });
 module.exports = router;
+module.exports.safeBaseUrl = safeBaseUrl;
