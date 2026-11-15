@@ -300,6 +300,13 @@ router.post("/result", async (req, res) => {
       });
     }
 
+    if (result !== undefined && result !== null && Buffer.byteLength(result, "utf8") > 700 * 1024) {
+      return res.status(413).json({
+        success: false,
+        message: "Task result exceeds the storage limit"
+      });
+    }
+
     if (
       error !== undefined &&
       error !== null &&
@@ -319,7 +326,7 @@ router.post("/result", async (req, res) => {
       {
         $set: {
           status: success ? "completed" : "failed",
-          result: result ? result.slice(0, 800000) : null,
+          result: result || null,
           error: success ? null : (error || "Execution failed").slice(0, 2000),
           completedAt: new Date()
         }
