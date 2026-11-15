@@ -23,6 +23,7 @@ const bridgeRoutes = require("./agent/routes/bridge");
 const taskRoutes = require("./agent/routes/tasks");
 const approvalRoutes = require("./agent/routes/approvals");
 const accountStatusRoutes = require("./agent/routes/accountStatus");
+const { resumePendingPlans } = require("./agent/planner");
 
 const app = express();
 
@@ -129,6 +130,8 @@ let server;
 async function startServer() {
   await connectDatabase();
   await bootstrapOwner();
+  const resumedPlans = await resumePendingPlans();
+  if (resumedPlans) console.log(`[Planner] Resumed ${resumedPlans} pending task(s)`);
   server = app.listen(config.app.port, "0.0.0.0", () => {
     console.log(`[Agent Backend] Running on port ${config.app.port}`);
     showDeploymentBanner();
