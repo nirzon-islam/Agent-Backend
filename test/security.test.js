@@ -62,9 +62,15 @@ test("executable action schema matches the restricted Railway executor", () => {
   assert.throws(() => security.validateExecutableAction({
     type: "delete", path: "languages/bn.lang"
   }), /Unsupported executable action/);
-  assert.throws(() => security.validateExecutableAction({
+  assert.equal(security.validateExecutableAction({
     type: "edit", path: "scripts/cmds/admin.js", content: "x"
-  }), /outside the language workspace/);
+  }).path, "scripts/cmds/admin.js");
+  assert.equal(security.validateExecutableAction({
+    type: "create", path: "scripts/events/onMessage.js", content: "module.exports = {};"
+  }).path, "scripts/events/onMessage.js");
+  assert.throws(() => security.validateExecutableAction({
+    type: "edit", path: "scripts/cmds/admin.txt", content: "x"
+  }), /JavaScript/);
   assert.throws(() => security.validateExecutableAction({
     type: "edit", path: "languages/bn.lang", content: "x", command: "rm -rf"
   }), /invalid shape/);
