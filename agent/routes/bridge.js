@@ -8,7 +8,7 @@ const router = express.Router();
 
 const Task = require("../models/Task");
 const security = require("../security");
-const { reconcileExpiredTasks } = require("../approval");
+const { reconcileExpiredTasks, decideApproval } = require("../approval");
 const { planTask } = require("../planner");
 const BotAccountStatus = require("../models/BotAccountStatus");
 
@@ -82,6 +82,80 @@ router.post("/status", async (req, res) => {
     return res.status(503).json({ success: false, message: "Unable to retrieve task status" });
   }
 });
+
+// Messenger Owner controls: only explicitly configured Owner sender IDs may list or decide approvals.
+function isMessengerOwner(senderId) {
+  return typeof senderId === "string" &&
+    senderId.length > 0 &&
+    config.bridge.ownerSenderIds.includes(senderId);
+}
+
+router.post("/approvals/pending", async (req, res) => {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    if (!isMessengerOwner(senderId)) return res.status(403).json({ success: false, message: "Owner permission required" });
+    await reconcileExpiredTasks();
+    const approvals = await Approval.find({ status: "pending", expiresAt: { $gt: new Date() } })
+      .select("approvalId taskId status expiresAt createdAt requestedBy")
+      .sort({ createdAt: -1 }).limit(10).lean();
+    const messengerApprovals = [];
+    for (const approval of approvals) {
+      const task = await Task.findOne({
+        taskId: approval.taskId,
+        approvalId: approval.approvalId,
+        source: "messenger",
+        status: "awaiting_approval"
+      }).select("taskId description type").lean();
+      if (task) messengerApprovals.push({
+        approvalId: approval.approvalId,
+        taskId: task.taskId,
+        description: task.description.replace(/^\\[Messenger request; planning required\\]\\s*/, "").slice(0, 500),
+        actionType: task.type,
+        status: approval.status,
+        expiresAt: approval.expiresAt
+      });
+    }
+    return res.json({ success: true, approvals: messengerApprovals });
+  } catch (error) {
+    console.error("[Bridge Pending Approvals]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to retrieve pending approvals" });
+  }
+});
+
+async function decideMessengerApproval(req, res, status) {
+  try {
+    const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
+    const reference = typeof req.body.reference === "string" ? req.body.reference.trim() : "";
+    if (!isMessengerOwner(senderId)) return res.status(403).json({ success: false, message: "Owner permission required" });
+    if (!reference || reference.length > 128) return res.status(400).json({ success: false, message: "Invalid task reference" });
+    const task = await Task.findOne({
+      $or: [{ taskId: reference }, { approvalId: reference }],
+      source: "messenger",
+      status: "awaiting_approval"
+    }).select("taskId approvalId requestedBy").lean();
+    if (!task || !task.approvalId) {
+      return res.status(404).json({ success: false, message: "Pending Messenger approval not found" });
+    }
+    const approval = await Approval.findOne({
+      approvalId: task.approvalId,
+      taskId: task.taskId,
+      status: "pending",
+      expiresAt: { $gt: new Date() }
+    }).select("approvalId").lean();
+    if (!approval) return res.status(409).json({ success: false, message: "Approval is no longer pending" });
+    const result = await decideApproval(approval.approvalId, "messenger:" + senderId, status);
+    return res.json({ success: true, approval: result });
+  } catch (error) {
+    if (["APPROVAL_NOT_AVAILABLE", "TASK_STATE_CONFLICT"].includes(error.message)) {
+      return res.status(409).json({ success: false, message: error.message });
+    }
+    console.error("[Bridge Messenger Approval]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to process Messenger approval" });
+  }
+}
+
+router.post("/approvals/approve", (req, res) => decideMessengerApproval(req, res, "approved"));
+router.post("/approvals/reject", (req, res) => decideMessengerApproval(req, res, "rejected"));
 
 // Railway Bridge polls for approved task IDs. Action payloads remain hidden
 // until the single-use /claim endpoint validates and consumes the approval.
