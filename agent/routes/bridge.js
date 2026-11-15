@@ -401,6 +401,23 @@ router.post("/recovery/claim", async (req, res) => {
   }
 });
 
+router.post("/recovery/progress", (req, res) => {
+  try {
+    const { requestId, botId, state, message } = req.body || {};
+    if (typeof requestId !== "string" || !/^[a-f0-9]{48}$/.test(requestId) ||
+        typeof botId !== "string" || !/^\\d{5,30}$/.test(botId) ||
+        typeof state !== "string" || typeof message !== "string") {
+      return res.status(400).json({ success: false, message: "Invalid recovery progress payload" });
+    }
+    const recoveryQueue = require("../recoveryQueue");
+    const saved = recoveryQueue.reportProgress({ requestId, botId, state, message });
+    return saved ? res.json({ success: true }) : res.status(409).json({ success: false, message: "Recovery request is no longer active" });
+  } catch (error) {
+    console.error("[Bridge Recovery Progress]", error.message);
+    return res.status(503).json({ success: false, message: "Unable to save recovery progress" });
+  }
+});
+
 router.post("/recovery/result", async (req, res) => {
   try {
     const state = req.body && req.body.state;
