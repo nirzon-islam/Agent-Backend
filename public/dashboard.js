@@ -32,7 +32,8 @@
     $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
     $("accountId").textContent = account.accountId || "Not reported";
     if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
-    // Keep recovery available even while the current session reports online: this flow refreshes the same Bot ID session.\n    $("recoveryFormPanel").hidden = false;
+    // Keep recovery available even while the current session reports online: this flow refreshes the same Bot ID session.
+    $("recoveryFormPanel").hidden = false;
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
     if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
