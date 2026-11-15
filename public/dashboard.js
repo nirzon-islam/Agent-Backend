@@ -142,6 +142,7 @@
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
       renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
       await refreshAccountStatus();
+      await loadAISettings();
       $("connection").textContent = "Connected"; $("connection").className = "pill pill-good";
     } catch(error) {
       if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
