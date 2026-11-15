@@ -15,6 +15,8 @@ const ALLOWED_TYPES = new Set([
   "delete",
   "restore",
   "move",
+  "mkdir",
+  "rmdir",
   "install",
   "restart",
   "test",
