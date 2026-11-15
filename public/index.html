@@ -38,6 +38,7 @@
             <label>Bot ID<input id="recoveryBotId" inputmode="numeric" autocomplete="off" maxlength="30" required></label>
             <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the complete account.txt JSON array here (not key=value; format)." required></textarea><small class="muted">Use the same full JSON array format as account.txt. Keep every cookie object and its metadata; c_user must match the Bot ID above.</small></label>
             <div class="actions"><button id="submitRecovery" type="submit">Send secure recovery</button><span id="recoveryMessage" class="muted" role="status"></span></div>
+            <ol id="recoveryTimeline" class="muted" aria-live="polite"></ol>
           </form>
         </div>
         <button id="enableNotifications" class="secondary" type="button">Enable browser alerts</button>
