@@ -3,6 +3,8 @@
 // Volatile, single-use credential handoff. Never persisted to MongoDB or logs.
 const crypto = require("crypto");
 const queue = new Map();
+const history = new Map();
+const MAX_HISTORY = 100;
 const MAX_TTL_MS = 2 * 60 * 1000;
 const MAX_COOKIE_BYTES = 64 * 1024;
 
@@ -54,7 +56,37 @@ function submit({ botId, cookie, ownerId }) {
   // One active handoff per bot; a fresh owner submission replaces an older one.
   for (const [key, item] of queue) if (item.botId === botId.trim()) queue.delete(key);
   queue.set(id, { id, botId: botId.trim(), cookie: secret, ownerId: String(ownerId), createdAt: now, expiresAt: now + MAX_TTL_MS, claimed: false });
+  history.set(id, { requestId: id, botId: botId.trim(), ownerId: String(ownerId), state: "queued", message: "Waiting for the GoatBot worker", createdAt: now, updatedAt: now, expiresAt: now + MAX_TTL_MS, events: [{ state: "queued", message: "Recovery request accepted", at: now }] });
+  while (history.size > MAX_HISTORY) history.delete(history.keys().next().value);
   return { requestId: id, expiresAt: new Date(now + MAX_TTL_MS).toISOString() };
+}
+
+function addEvent(meta, state, message) {
+  const now = Date.now();
+  meta.state = state;
+  meta.message = String(message || "").replace(/[\r\n\t]/g, " ").slice(0, 240);
+  meta.updatedAt = now;
+  meta.events.push({ state, message: meta.message, at: now });
+  if (meta.events.length > 30) meta.events.shift();
+}
+
+function reportProgress({ requestId, botId, state, message }) {
+  const allowed = new Set(["validating", "login_started", "mqtt_connecting", "online", "checkpoint", "error", "expired"]);
+  if (!allowed.has(state) || typeof requestId !== "string" || typeof botId !== "string") return false;
+  const meta = history.get(requestId);
+  if (!meta || meta.botId !== botId) return false;
+  if (["online", "checkpoint", "error", "expired"].includes(meta.state)) return false;
+  addEvent(meta, state, message);
+  return true;
+}
+
+function getStatus(requestId, ownerId) {
+  const meta = history.get(requestId);
+  if (!meta || meta.ownerId !== String(ownerId)) return null;
+  return { requestId: meta.requestId, botId: meta.botId, state: meta.state, message: meta.message,
+    createdAt: new Date(meta.createdAt).toISOString(), updatedAt: new Date(meta.updatedAt).toISOString(),
+    expiresAt: new Date(meta.expiresAt).toISOString(),
+    events: meta.events.map(event => ({ state: event.state, message: event.message, at: new Date(event.at).toISOString() })) };
 }
 
 function claim(botId) {
@@ -64,7 +96,9 @@ function claim(botId) {
     if (item.expiresAt <= now) { queue.delete(key); continue; }
     if (item.botId === botId && !item.claimed) {
       item.claimed = true;
-      const result = { requestId: item.id, cookie: item.cookie };
+      const result = { requestId: item.id, botId: item.botId, cookie: item.cookie };
+      const meta = history.get(item.id);
+      if (meta) addEvent(meta, "claimed", "Worker securely claimed the appstate");
       queue.delete(key); // single-use; cookie exists only in this response after claim
       return result;
     }
@@ -72,4 +106,4 @@ function claim(botId) {
   return null;
 }
 
-module.exports = { submit, claim, normalizeCookie };
+module.exports = { submit, claim, normalizeCookie, reportProgress, getStatus };
