@@ -61,6 +61,14 @@ Unauthorized copying, modification, distribution, or commercial use of this proj
 
 ## 🧠 AI Providers
 
+The Owner dashboard includes three configurable AI slots: **Main**, **Fallback**, and **Backup**. Each slot supports Google Gemini or any public HTTPS OpenAI-compatible API (for example OpenRouter, Groq, DeepSeek, Together, or compatible hosted endpoints). The planner tries enabled slots in order and proceeds to the next slot when a provider fails or returns invalid JSON. A structurally unsafe planner response is rejected rather than silently retried.
+
+To save dashboard API keys, set `AI_SETTINGS_ENCRYPTION_KEY` in Render Environment to a securely generated 64-character hexadecimal value (32 random bytes). Keys are encrypted at rest with AES-256-GCM; the dashboard only displays a masked hint. Keep this encryption key backed up securely. Losing it makes saved provider keys unreadable. Never commit the key to GitHub.
+
+Only the Owner can view or change provider settings. Use **Save AI Settings** and then **Test** each enabled slot. Base URLs must use public HTTPS hosts; localhost and private IP destinations are blocked.
+
+
+
 | Provider | Purpose |
 |---|---|
 | Gemini | Primary AI |
