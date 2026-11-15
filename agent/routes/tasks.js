@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const router = express.Router();
 const Task = require("../models/Task");
 const { reconcileExpiredTasks } = require("../approval");
-const { planTask } = require("../planner");
+const { schedulePlanTask } = require("../planner");
 
 const ALLOWED_TYPES = new Set([
   "read",
@@ -78,17 +78,10 @@ router.post("/", async (req, res) => {
       taskId: crypto.randomUUID(), requestedBy: String(req.user.id), source: "website",
       type: "read", description: description.trim(), status: "pending"
     });
-    try {
-      const planning = await planTask(task.taskId);
-      return res.status(201).json({ success: true, task: {
-        taskId: task.taskId, description: task.description, status: planning.status,
-        actionType: planning.actionType, approvalId: planning.approvalId,
-        message: "AI plan created. Owner approval is required before execution."
-      }});
-    } catch (planningError) {
-      return res.status(202).json({ success: true, task: { taskId: task.taskId, description: task.description, status: "failed" },
-        message: "Request saved, but AI could not create a safe plan. Check task details and AI provider configuration." });
-    }
+    schedulePlanTask(task.taskId, "website");
+    return res.status(202).json({ success: true, task: {
+      taskId: task.taskId, description: task.description, status: "pending"
+    }, message: "Request queued for AI planning. Track progress in the task list; Owner approval is required before execution." });
   } catch (error) {
     console.error("[Task Submit]", error.message);
     return res.status(500).json({ success: false, message: "Unable to submit task" });
