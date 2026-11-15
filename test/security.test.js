@@ -45,6 +45,8 @@ test("protected action types require approval; read/test do not", () => {
   assert.equal(security.checkActionPermission("create").requiresApproval, true);
   assert.equal(security.checkActionPermission("update").requiresApproval, true);
   assert.equal(security.checkActionPermission("delete").requiresApproval, true);
+  assert.equal(security.checkActionPermission("restore").requiresApproval, true);
+  assert.equal(security.checkActionPermission("move").requiresApproval, true);
   assert.equal(security.checkActionPermission("install").requiresApproval, true);
   assert.throws(() => security.checkActionPermission("shell"));
 });
@@ -62,6 +64,19 @@ test("executable action schema matches the server-side workspace executor", () =
   assert.equal(security.validateExecutableAction({
     type: "delete", path: "languages/bn.lang"
   }).type, "delete");
+  assert.equal(security.validateExecutableAction({
+    type: "restore", path: "config.json", backupId: "a".repeat(64)
+  }).type, "restore");
+  assert.equal(security.validateExecutableAction({
+    type: "move", path: "config.json", destination: "config-old.json"
+  }).type, "move");
+  assert.equal(security.validateExecutableAction({
+    type: "install", manager: "npm-ci"
+  }).type, "install");
+  assert.equal(security.validateExecutableAction({
+    type: "update", manager: "npm-update"
+  }).type, "update");
+  assert.throws(() => security.validateExecutableAction({ type: "install", manager: "shell" }), /approved npm/);
   assert.equal(security.validateExecutableAction({
     type: "edit", path: "scripts/cmds/admin.js", content: "x"
   }).path, "scripts/cmds/admin.js");
