@@ -22,7 +22,7 @@
   }
 
   const aiSlotNames = ["main","fallback","backup"];
-  async function loadAISettings() {
+  let aiSettingsLoaded = false;\n  async function loadAISettings() {\n    if (aiSettingsLoaded) return;
     const data = await api("/api/ai-settings/");
     for (const name of aiSlotNames) {
       const slot = data.slots?.[name] || {};
