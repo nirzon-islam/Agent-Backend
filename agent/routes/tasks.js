@@ -16,6 +16,7 @@ const ALLOWED_TYPES = new Set([
   "restore",
   "move",
   "install",
+  "restart",
   "test",
   "update"
 ]);
