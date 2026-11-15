@@ -45,6 +45,43 @@
         <button id="enableNotifications" class="secondary" type="button">Enable browser alerts</button>
         <span id="notificationMessage" class="muted" role="status"></span>
       </section>
+      <section class="panel" id="aiSettingsPanel">
+        <div class="sectionHead"><h2>AI Provider Settings</h2><span class="muted">Main → Fallback → Backup</span></div>
+        <p class="muted">প্রতিটি slot-এ আলাদা provider ও model বসাও। API key ফাঁকা রাখলে আগের key থাকবে।</p>
+        <div class="aiGrid">
+          <article class="aiSlot"><h3>Main AI</h3>
+            <label><input id="ai-main-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-main-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-main-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-main-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-main-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-main-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-main-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="main">Test Main</button>
+          </article>
+          <article class="aiSlot"><h3>Fallback AI</h3>
+            <label><input id="ai-fallback-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-fallback-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-fallback-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-fallback-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-fallback-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-fallback-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-fallback-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="fallback">Test Fallback</button>
+          </article>
+          <article class="aiSlot"><h3>Backup AI</h3>
+            <label><input id="ai-backup-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-backup-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-backup-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-backup-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-backup-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-backup-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-backup-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="backup">Test Backup</button>
+          </article>
+        </div>
+        <div class="actions"><button id="saveAISettings" type="button">Save AI Settings</button><span id="aiSettingsMessage" class="feedback" role="status"></span></div>
+      </section>
       <section class="panel">
         <div class="sectionHead"><h2>New Agent Request</h2><span class="muted">AI plans first • Owner approves</span></div>
         <form id="requestForm" class="requestForm">
