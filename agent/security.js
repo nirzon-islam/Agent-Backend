@@ -3,8 +3,8 @@
 const crypto = require("crypto");
 const config = require("./config");
 
-const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "restore", "move", "install", "test", "update", "restart"]);
-const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "delete", "restore", "move", "install", "update", "restart"]);
+const ALLOWED_ACTIONS = new Set(["read", "create", "edit", "delete", "restore", "move", "mkdir", "rmdir", "install", "test", "update", "restart"]);
+const EXECUTABLE_ACTION_TYPES = new Set(["create", "edit", "read", "test", "delete", "restore", "move", "mkdir", "rmdir", "install", "update", "restart"]);
 const MAX_PLAN_STEPS = 20;
 const PROTECTED_SEGMENTS = new Set([".git", "node_modules", "secrets", "cache", "cookies", "Fca_Database"]);
 
@@ -47,7 +47,7 @@ function validateExecutableAction(action) {
   const required = {
     create: ["type", "path", "content"], edit: ["type", "path", "content"],
     read: ["type", "path"], test: ["type", "path"], delete: ["type", "path"],
-    restore: ["type", "path", "backupId"], move: ["type", "path", "destination"],
+    restore: ["type", "path", "backupId"], move: ["type", "path", "destination"], mkdir: ["type", "path"], rmdir: ["type", "path"],
     install: ["type", "manager"], update: ["type", "manager"], restart: ["type"]
   }[action.type];
   if (Object.keys(action).some(key => !required.includes(key)) || required.some(key => !Object.prototype.hasOwnProperty.call(action, key))) {
