@@ -386,14 +386,8 @@ router.post("/account-status", async (req, res) => {
 // delivered once to the Railway worker over the signed HTTPS bridge.
 router.post("/recovery/claim", async (req, res) => {
   try {
-    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
-    if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID" });
-    const current = await BotAccountStatus.findOne({ key: "primary" }).lean();
-    if (!current || !["logged_out", "error", "unknown"].includes(current.state) || !current.lastHeartbeatAt || Date.now() - new Date(current.lastHeartbeatAt).getTime() > 90 * 1000 || current.accountId !== botId) {
-      return res.json({ success: true, recovery: null });
-    }
     const recoveryQueue = require("../recoveryQueue");
-    const recovery = recoveryQueue.claim(botId);
+    const recovery = recoveryQueue.claimNext();
     return res.json({ success: true, recovery });
   } catch (error) {
     console.error("[Bridge Recovery Claim]", error.message);
@@ -427,9 +421,10 @@ router.post("/recovery/result", async (req, res) => {
     if (!/^\d{5,30}$/.test(botId) || !allowed.has(state)) {
       return res.status(400).json({ success: false, message: "Invalid recovery result" });
     }
-    await BotAccountStatus.findOneAndUpdate({ key: "primary", accountId: botId }, {
-      $set: { state, message: message || null, lastHeartbeatAt: new Date() }
-    }, { new: true });
+    await BotAccountStatus.findOneAndUpdate({ key: "primary" }, {
+      $set: { state, accountId: botId, message: message || null, lastHeartbeatAt: new Date(), changedAt: new Date() },
+      $setOnInsert: { key: "primary" }
+    }, { new: true, upsert: true, runValidators: true });
     return res.json({ success: true });
   } catch (error) {
     console.error("[Bridge Recovery Result]", error.message);
