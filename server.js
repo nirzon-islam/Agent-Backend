@@ -42,7 +42,7 @@ app.use(cors({
 }));
 
 app.use(express.json({
-  limit: "100kb",
+  limit: "1mb",
   verify: (req, res, buf) => { req.rawBody = Buffer.from(buf); }
 }));
 
