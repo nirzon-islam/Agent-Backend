@@ -70,7 +70,7 @@ test("executable action schema matches the restricted Railway executor", () => {
   }).path, "scripts/events/onMessage.js");
   assert.throws(() => security.validateExecutableAction({
     type: "edit", path: "scripts/cmds/admin.txt", content: "x"
-  }), /JavaScript/);
+  }), /outside the language workspace/);
   assert.throws(() => security.validateExecutableAction({
     type: "edit", path: "languages/bn.lang", content: "x", command: "rm -rf"
   }), /invalid shape/);
