@@ -389,7 +389,7 @@ router.post("/recovery/claim", async (req, res) => {
     const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID" });
     const current = await BotAccountStatus.findOne({ key: "primary" }).lean();
-    if (!current || current.state !== "logged_out" || current.accountId !== botId) {
+    if (!current || !["logged_out", "error"].includes(current.state) || current.accountId !== botId) {
       return res.json({ success: true, recovery: null });
     }
     const recoveryQueue = require("../recoveryQueue");
