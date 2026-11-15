@@ -23,7 +23,7 @@ router.get("/", async (req, res) => {
       recovery: {
         automatedLogin: true,
         pendingHandoff: false,
-        note: "Submit a fresh appstate cookie for this exact Bot ID. It is held temporarily in memory and delivered once to the connected GoatBot worker. Facebook checkpoints still require manual completion."
+        note: "Submit a fresh appstate cookie for any Bot ID; the cookie c_user must match the ID entered. It is held temporarily in memory and delivered once to the connected GoatBot worker. Facebook checkpoints still require manual completion."
       }
     });
   } catch (error) {
