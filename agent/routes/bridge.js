@@ -9,7 +9,7 @@ const router = express.Router();
 const Task = require("../models/Task");
 const security = require("../security");
 const { reconcileExpiredTasks, decideApproval } = require("../approval");
-const { planTask } = require("../planner");
+const { schedulePlanTask } = require("../planner");
 const BotAccountStatus = require("../models/BotAccountStatus");
 
 // Register the Approval model.
@@ -41,19 +41,12 @@ router.post("/requests", async (req, res) => {
       status: "pending"
     });
 
-    try {
-      const planning = await planTask(task.taskId);
-      return res.status(201).json({
-        success: true,
-        task: { taskId: task.taskId, status: planning.status, source: task.source, actionType: planning.actionType, approvalId: planning.approvalId }
-      });
-    } catch (planningError) {
-      return res.status(202).json({
-        success: true,
-        task: { taskId: task.taskId, status: "failed", source: task.source },
-        message: "Request was saved but could not be planned. Check AI provider configuration and task details."
-      });
-    }
+    schedulePlanTask(task.taskId, "messenger");
+    return res.status(202).json({
+      success: true,
+      task: { taskId: task.taskId, status: "pending", source: task.source },
+      message: "Request queued for AI planning. Check task status shortly; Owner approval is required before execution."
+    });
   } catch (error) {
     console.error("[Bridge Request]", error.message);
     return res.status(503).json({ success: false, message: "Unable to submit Messenger request" });
