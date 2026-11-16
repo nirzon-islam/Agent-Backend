@@ -1,48 +1,101 @@
-# Agent Backend — deployment preparation
+# Agent Backend — deployment guide
 
-## Current deployability status
+## Deployment target
 
-The Messenger intake, AI planner, structured action validation, Owner approval workflow, signed bridge client, and opt-in worker path are now implemented on the feature branches. However, database-backed end-to-end tests and credential rotation/history review remain outstanding. Keep the bridge and worker disabled until those checks are complete.
+Deploy the Agent Backend as a Node.js **Web Service** on Render (or a compatible Node.js host). The GoatBot process is a separate service and is not deployed by this repository.
+
+Deploy the reviewed `main` branch after its CI checks pass. Do not follow old instructions to deploy an unreviewed feature branch or PR head.
 
 ## Runtime
 
-- Node.js 20.x
-- Install: `npm ci` (if a lockfile is present), otherwise `npm install`
-- Start: `npm start`
-- Health check: `GET /api/health`
-- Set the host-provided `PORT`; do not hardcode it.
+- Node.js: `20.x` (see `package.json`)
+- Build command: `npm install`
+- Start command: `npm start`
+- Health check: `/api/health`
+- Port: use the host-provided `PORT`; the application defaults to 3000 if it is absent.
+
+Use `npm ci` only if a package lockfile is committed in the repository.
 
 ## MongoDB
 
-Use MongoDB Atlas or another MongoDB deployment that supports replica-set transactions. The approval/task workflow uses transactions; a standalone MongoDB server is not sufficient. Create a dedicated database user with access only to this database, allow only the hosting provider's required network access, and keep the URI private.
+Use MongoDB Atlas or another MongoDB deployment that supports replica-set transactions. The task/approval workflow relies on transaction support; a standalone MongoDB server is not sufficient.
 
-## Required environment
+Create a dedicated database user with access only to the Agent database. Restrict network access to the hosting provider as appropriate and keep the connection URI private.
 
-See `.env.example`. Set `MONGODB_URI`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`. Admin username must be 3–40 lowercase letters, digits, underscore or hyphen; password must be 8–128 characters. Prefer a unique password-manager-generated password of at least 12 characters; the 8-character minimum is a compatibility floor, not a security recommendation.
+## Environment variables
 
-Optional AI keys are provider-specific. Do not assume a provider is active merely because a model name is present. Keep `BRIDGE_ENABLED=false` until database-backed integration tests and credential rotation are complete. Configure at least one AI provider key. If enabled later, `BRIDGE_SECRET` must be at least 32 characters and identical on the backend and bot.
+Use `.env.example` as the canonical variable-name reference. Add values in the host dashboard; never commit or upload a production `.env`.
 
-## Render setup (manual)
+### Required for initial deployment / Owner bootstrap
 
-1. Create a new **Web Service** from this repository and select the reviewed feature branch/PR only after reviewing it.
-2. Runtime: Node; build command: `npm install` (or `npm ci` when a committed lockfile is available); start command: `npm start`.
-3. Add environment variables from `.env.example` in Render's Environment page; never upload a real `.env`.
-4. Set health check path to `/api/health`.
-5. Deploy, then verify the health endpoint and inspect logs for successful database connection and owner bootstrap.
-6. Keep bridge disabled and do not connect GoatBot until the integration is complete.
+| Variable | Purpose |
+|---|---|
+| `MONGODB_URI` | MongoDB connection string for a transaction-capable deployment |
+| `ADMIN_USERNAME` | Initial Owner username: 3–40 lowercase letters, digits, underscore or hyphen |
+| `ADMIN_PASSWORD` | Initial Owner password: 8–128 characters; use 12+ characters |
 
-Render free instances may sleep and are not suitable for reliable always-on workers. Database availability and hosting limits depend on the selected plans.
+The Owner is created during first startup if one does not already exist. Once an Owner exists, changing the bootstrap variables does not automatically replace the stored Owner credentials. The optional `ADMIN_BOOTSTRAP_SYNC=true` path explicitly synchronizes them; use it only as a deliberate one-time operation and remove it immediately afterwards.
+
+### Dashboard AI encryption
+
+| Variable | Purpose |
+|---|---|
+| `AI_SETTINGS_ENCRYPTION_KEY` | 64 hexadecimal characters representing 32 random bytes; used to encrypt saved provider credentials at rest |
+
+Back this key up securely. Losing it makes previously saved provider credentials unreadable. Configure AI provider keys and models in the Owner Dashboard (Main, Fallback and Backup slots), not by assuming provider-specific Render variables are active.
+
+### Optional bridge settings
+
+| Variable | Purpose |
+|---|---|
+| `BRIDGE_ENABLED` | Defaults to disabled; set to `true` only after end-to-end integration validation |
+| `BRIDGE_SECRET` | Required when bridge is enabled; minimum 32 characters |
+| `AGENT_ALLOWED_SENDER_IDS` | Comma-separated allowed Facebook sender IDs |
+| `AGENT_OWNER_SENDER_IDS` | Comma-separated Owner sender IDs |
+| `WEBSITE_ORIGINS` | Comma-separated exact origins allowed by CORS; leave empty for same-origin dashboard use |
+
+The bridge secret must match the corresponding secret configured in the exact GoatBot revision. Do not guess the GoatBot variable name: confirm it in that revision's code/configuration before enabling the bridge.
+
+## Render setup
+
+1. Create a **New → Web Service** from `nirzon-islam/Agent-Backend`.
+2. Select the `main` branch.
+3. Set the runtime/build/start/health-check values listed above.
+4. Add the environment variables required for Owner bootstrap and dashboard encryption.
+5. Create the MongoDB database and set `MONGODB_URI`.
+6. Deploy and inspect startup logs. Confirm the database connects and the Owner bootstrap completes or reports that an Owner already exists.
+7. Verify `/api/health` returns HTTP 200 and reports `database: connected`.
+8. Sign in to the dashboard and configure/test at least one AI provider.
+
+Render Free services may sleep when inactive. Select a plan appropriate for the uptime and worker behavior you need.
+
+## Bridge and Facebook session reconnection
+
+Keep `BRIDGE_ENABLED=false` until all of the following have been tested against the exact deployed GoatBot revision:
+
+- Signed bridge authentication and request validation
+- Allowed sender/Owner authorization
+- Messenger intake and task-to-action binding
+- Owner approval before sensitive changes
+- Account status and session-reconnection flow
+- Facebook candidate-session verification and safe failure handling
+- Database-backed integration tests and credential rotation
+
+Facebook may require checkpoint or manual security verification. A successful backend health check does not prove Facebook login, MQTT readiness, account switching or bridge connectivity. Never paste or log cookies/AppState.
 
 ## Pre-deploy checklist
 
-- [ ] Review PR diff and CI on the latest commit.
-- [ ] Create MongoDB replica-set/Atlas database and least-privilege user.
-- [ ] Configure all required environment variables in the host dashboard.
-- [ ] Rotate any credentials that were ever committed to source control.
-- [ ] Confirm `.env`, database dumps, bot session files and credentials are not committed.
+- [ ] Deploy the reviewed `main` branch with passing CI.
+- [ ] Confirm Node.js 20.x and the correct start command.
+- [ ] Configure MongoDB with replica-set transaction support.
+- [ ] Set `MONGODB_URI`, `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
+- [ ] Set and securely back up `AI_SETTINGS_ENCRYPTION_KEY`.
+- [ ] Confirm `.env`, database dumps, cookies/AppState and credentials are not committed.
 - [ ] Verify `/api/health` and database startup logs.
-- [ ] Keep `BRIDGE_ENABLED=false` until Messenger intake, planner, task/action binding and database-backed integration tests are verified.
+- [ ] Sign in and test an AI provider from the Owner Dashboard.
+- [ ] Keep `BRIDGE_ENABLED=false` until the complete integration checklist above passes.
+- [ ] Rotate any credentials that have ever appeared in Git history.
 
 ## Security
 
-Never commit production secrets. If a secret has appeared in Git history, deleting it from the current file does not make it safe: revoke/rotate it at the provider, review repository history and restrict access. Do not paste secrets into issues, PRs or chat.
+Never commit production secrets. Removing a secret from the latest file does not remove it from Git history. Revoke/rotate exposed credentials at their provider, review repository history and restrict access. Do not paste secrets into issues, pull requests or chat.
