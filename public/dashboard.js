@@ -101,6 +101,7 @@
       const result=await api("/api/ai-settings/",{method:"PUT",body:JSON.stringify({slots})});
       for (const name of aiSlotNames) $("ai-"+name+"-key").value="";
       feedback("aiSettingsMessage",result.message || "Saved.","success");
+      aiSettingsLoaded = false;
       await loadAISettings();
     } catch(error) { feedback("aiSettingsMessage",error.message,"error"); }
     finally { busy(button,false,"Saving…","Save AI Settings"); }
