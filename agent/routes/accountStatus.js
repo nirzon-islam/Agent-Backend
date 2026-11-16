@@ -46,11 +46,9 @@ router.get("/recovery/:requestId", (req, res) => {
 // The credential is never written to MongoDB, task history, or application logs.
 router.post("/recovery", async (req, res) => {
   try {
-    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     const cookie = req.body.cookie;
-    if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID." });
-    const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
-    return res.status(202).json({ success: true, requestId: queued.requestId, expiresAt: queued.expiresAt,
+    const queued = recoveryQueue.submit({ cookie, ownerId: req.user.id });
+    return res.status(202).json({ success: true, requestId: queued.requestId, botId: queued.botId, expiresAt: queued.expiresAt,
       message: "Cookie accepted for one-time delivery. It expires in 2 minutes if the worker does not claim it." });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message || "Unable to queue recovery" });
