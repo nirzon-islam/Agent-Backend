@@ -24,8 +24,8 @@
       <p id="loginMessage" class="message" role="status"></p>
     </section>
     <section id="appPanel" hidden>
-      <div class="toolbar"><h2>Overview</h2><button id="refreshBtn" class="secondary">Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div>
-      <div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
+      <div class="toolbar"><div class="toolbarTitle"><button id="menuToggle" class="secondary menuToggle" type="button" aria-expanded="false" aria-controls="sectionMenu" aria-label="Open navigation">☰</button><h2 id="viewTitle">Home</h2></div><div class="toolbarActions"><span id="refreshMessage" class="muted" role="status" aria-live="polite"></span><button id="refreshBtn" class="secondary" type="button">↻ Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div></div><nav id="sectionMenu" class="sectionMenu" hidden aria-label="Dashboard sections"><button type="button" class="navItem active" data-view="home">⌂ Home</button><button type="button" class="navItem" data-view="ai">✧ AI Settings</button><button type="button" class="navItem" data-view="approvals">✓ Approvals <span id="approvalNavDot" class="navDot" hidden></span></button><button type="button" class="navItem" data-view="tasks">☷ Agent Tasks <span id="taskNavDot" class="navDot" hidden></span></button></nav><div id="homeNotice" class="homeNotice" role="status" aria-live="polite" hidden></div>
+      <section id="homeView" class="viewPanel"><div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
       <section class="panel" id="accountPanel">
         <div class="sectionHead"><h2>Facebook Account Monitor</h2></div>
         <div class="actions statusRow"><span class="muted">GoatBot Worker</span><span id="workerState" class="status">Checking…</span><span class="muted">Facebook Session</span><span id="accountState" class="status">Checking…</span></div>
@@ -45,7 +45,7 @@
         <button id="enableNotifications" class="secondary" type="button">Enable browser alerts</button>
         <span id="notificationMessage" class="muted" role="status"></span>
       </section>
-      <section class="panel" id="aiSettingsPanel">
+      </section><section id="aiView" class="viewPanel" hidden><section class="panel" id="aiSettingsPanel">
         <div class="sectionHead"><h2>AI Provider Settings</h2><span class="muted">Main → Fallback → Backup</span></div>
         <p class="muted">প্রতিটি slot-এ আলাদা provider ও model বসাও। API key ফাঁকা রাখলে আগের key থাকবে।</p>
         <div class="aiGrid">
@@ -82,7 +82,7 @@
         </div>
         <div class="actions"><button id="saveAISettings" type="button">Save AI Settings</button><span id="aiSettingsMessage" class="feedback" role="status"></span></div>
       </section>
-      <section class="panel">
+      </section><section id="tasksView" class="viewPanel" hidden><section class="panel">
         <div class="sectionHead"><h2>New Agent Request</h2><span class="muted">AI plans first • Owner approves</span></div>
         <form id="requestForm" class="requestForm">
           <label for="requestDescription">What should the Agent do?</label>
@@ -90,8 +90,8 @@
           <div class="actions"><button id="submitRequest" type="submit">Ask AI to plan</button><span id="requestMessage" class="muted" role="status"></span></div>
         </form>
       </section>
-      <section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
-      <section class="panel"><div class="sectionHead"><h2>Recent Tasks</h2><span class="muted">Messenger and website activity</span></div><div id="tasks" class="items"><p class="muted">No tasks loaded.</p></div></section>
+      </section><section id="approvalsView" class="viewPanel" hidden><section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
+      <section class="panel"><div class="sectionHead"><h2>Recent Tasks</h2><span class="muted">Messenger and website activity</span></div><div id="tasks" class="items"><p class="muted">No tasks loaded.</p></div></section></section>
     </section>
     <footer>Agent Backend • Actions remain blocked until Owner approval.</footer>
   </main>
