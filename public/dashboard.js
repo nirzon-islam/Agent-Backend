@@ -40,6 +40,28 @@
     const el = $(id); el.textContent = message; el.className = "feedback " + kind;
     el.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
   }
+  function setView(view) {
+    const views = {home:"Home",ai:"AI Settings",approvals:"Approvals",tasks:"Agent Tasks"};
+    const selected = views[view] ? view : "home";
+    for (const [key,id] of Object.entries({home:"homeView",ai:"aiView",approvals:"approvalsView",tasks:"tasksView"})) $(id).hidden = key !== selected;
+    $("viewTitle").textContent = views[selected];
+    document.querySelectorAll(".navItem").forEach(button => {
+      const active = button.dataset.view === selected;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-current",active ? "page" : "false");
+    });
+    $("sectionMenu").hidden = true;
+    $("menuToggle").setAttribute("aria-expanded","false");
+  }
+  function updateHomeNotice(approvalCount, taskCount) {
+    const notice=$("homeNotice"), parts=[];
+    if (approvalCount) parts.push(approvalCount+" approval"+(approvalCount===1?"":"s")+" waiting for review");
+    if (taskCount) parts.push(taskCount+" task"+(taskCount===1?"":"s")+" need attention");
+    notice.hidden=!parts.length;
+    notice.textContent=parts.length ? "🔔 "+parts.join(" • ")+" — open the menu to review." : "";
+    $("approvalNavDot").hidden=!approvalCount;
+    $("taskNavDot").hidden=!taskCount;
+  }
   function busy(button, yes, busyText, idleText) {
     button.disabled = yes; button.classList.toggle("is-loading", yes);
     button.textContent = yes ? busyText : idleText;
@@ -133,10 +155,12 @@
   });
   function renderApprovals(items) {
     $("pendingCount").textContent = items.length;
+    updateHomeNotice(items.length, Number($("taskCount").textContent)||0);
     $("approvals").innerHTML = items.length ? items.map(item => `<article class="item"><div class="itemTop"><strong>Approval • ${safe(item.approvalId)}</strong><span class="status">${safe(item.status)}</span></div><p>Task: ${safe(item.taskId)}<br>Requested by: ${safe(item.requestedBy)}<br>Expires: ${safe(item.expiresAt)}</p><pre>${safe(JSON.stringify(item.action,null,2))}</pre><div class="actions"><button class="approve" data-action="approve" data-id="${safe(item.approvalId)}">Approve</button><button class="reject" data-action="reject" data-id="${safe(item.approvalId)}">Reject</button></div></article>`).join("") : '<p class="muted">No pending approvals.</p>';
   }
   function renderTasks(items) {
     $("taskCount").textContent = items.length;
+    updateHomeNotice(Number($("pendingCount").textContent)||0, items.filter(task => ["failed","awaiting_approval","pending","running"].includes(String(task.status).toLowerCase())).length);
     $("tasks").innerHTML = items.length ? items.map(task => {
       let parsed = null;
       try { parsed = typeof task.result === "string" ? JSON.parse(task.result) : task.result; } catch {}
@@ -163,16 +187,22 @@
   });
 
   async function refresh() {
+    const button=$("refreshBtn");
+    if (button && !button.disabled) busy(button,true,"Refreshing…","↻ Refresh");
+    feedback("refreshMessage","Updating dashboard…","loading");
     try {
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
       renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
       await refreshAccountStatus();
       await loadAISettings();
       $("connection").textContent = "Connected"; $("connection").className = "pill pill-good";
+      feedback("refreshMessage","✓ Updated just now","success");
     } catch(error) {
       if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
-      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad"; feedback("loginMessage", error.message, "error");
-    }
+      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad";
+      feedback("refreshMessage","Refresh failed: "+error.message,"error");
+      feedback("loginMessage",error.message,"error");
+    } finally { if (button) busy(button,false,"Refreshing…","↻ Refresh"); }
   }
 
   async function refreshRecoveryProgress() {
@@ -244,7 +274,10 @@
     try { await api("/api/approvals/" + encodeURIComponent(button.dataset.id) + "/" + button.dataset.action, {method:"POST",body:"{}"}); await refresh(); }
     catch(error) { alert(error.message); button.disabled=false; }
   });
-  $("refreshBtn").addEventListener("click", refresh);
+  $("refreshBtn").addEventListener("click", () => { if (!$("refreshBtn").disabled) void refresh(); });
+  $("menuToggle").addEventListener("click", () => { const menu=$("sectionMenu"), opening=menu.hidden; menu.hidden=!opening; $("menuToggle").setAttribute("aria-expanded",String(opening)); });
+  $("sectionMenu").addEventListener("click", event => { const button=event.target.closest(".navItem"); if (button) setView(button.dataset.view); });
+  setView("home");
   setInterval(() => { if (token && activeRecoveryRequestId && !document.hidden) void refreshRecoveryProgress(); }, 3000);
   $("logoutBtn").addEventListener("click", () => { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); });
   if (token) { showApp(true); refresh(); setInterval(() => { if (token && !document.hidden) refresh(); }, 15000); } else showApp(false);
