@@ -46,7 +46,7 @@
       </section>
       </section><section id="aiView" class="viewPanel" hidden><section class="panel" id="aiSettingsPanel">
         <div class="sectionHead"><h2>AI Provider Settings</h2><span class="muted">Main → Fallback → Backup</span></div>
-        <p class="muted">প্রতিটি slot-এ আলাদা provider ও model বসাও। API key ফাঁকা রাখলে আগের key থাকবে।</p>
+        <p class="muted">শুধু Main AI চালু রাখলেও Agent কাজ করবে। Fallback ও Backup ঐচ্ছিক; পরে চাইলে যোগ করতে পারো। API key ফাঁকা রাখলে আগের key থাকবে।</p>
         <div class="aiGrid">
           <article class="aiSlot"><h3>Main AI</h3>
             <label><input id="ai-main-enabled" type="checkbox" checked> Enable this slot</label>
@@ -59,7 +59,7 @@
             <button type="button" class="secondary" data-ai-test="main">Test Main</button>
           </article>
           <article class="aiSlot"><h3>Fallback AI</h3>
-            <label><input id="ai-fallback-enabled" type="checkbox" checked> Enable this slot</label>
+            <label><input id="ai-fallback-enabled" type="checkbox"> Enable this slot</label>
             <label>Provider<select id="ai-fallback-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
             <label>Model<input id="ai-fallback-model" maxlength="180" placeholder="model-name"></label>
             <label>Base URL<input id="ai-fallback-url" placeholder="https://api.example.com/v1"></label>
@@ -69,7 +69,7 @@
             <button type="button" class="secondary" data-ai-test="fallback">Test Fallback</button>
           </article>
           <article class="aiSlot"><h3>Backup AI</h3>
-            <label><input id="ai-backup-enabled" type="checkbox" checked> Enable this slot</label>
+            <label><input id="ai-backup-enabled" type="checkbox"> Enable this slot</label>
             <label>Provider<select id="ai-backup-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
             <label>Model<input id="ai-backup-model" maxlength="180" placeholder="model-name"></label>
             <label>Base URL<input id="ai-backup-url" placeholder="https://api.example.com/v1"></label>
