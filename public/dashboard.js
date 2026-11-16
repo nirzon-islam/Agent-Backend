@@ -132,7 +132,6 @@
     $("accountState").className = "status " + (sessionState === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(sessionState) ? "state-bad" : ""));
     $("accountMessage").textContent = account.message || (sessionState === "online" ? "Facebook authentication is active." : "Facebook authentication is not confirmed.");
     $("accountId").textContent = account.accountId || "Not reported";
-    if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
     $("recoveryFormPanel").hidden = false;
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
@@ -225,18 +224,18 @@
   $("recoveryForm").addEventListener("submit", async event => {
     event.preventDefault();
     const button = $("submitRecovery");
-    const botId = $("recoveryBotId").value.trim();
     const cookie = $("recoveryCookie").value;
-    if (!botId || !cookie.trim()) return;
+    if (!cookie.trim()) return;
     busy(button, true, "Sending securely…", "Login with Facebook Cookie");
     feedback("recoveryMessage", "Sending one-time Facebook login handoff…", "loading");
     try {
       const result = await api("/api/account/status/recovery", {
         method: "POST",
-        body: JSON.stringify({ botId, cookie })
+        body: JSON.stringify({ cookie })
       });
       $("recoveryCookie").value = "";
       activeRecoveryRequestId = result.requestId || "";
+      if (result.botId) $("accountMessage").textContent = "Detected Facebook Bot ID: " + result.botId + ". Login handoff queued.";
       await refreshRecoveryProgress();
       feedback("recoveryMessage", (result.message || "Facebook login handoff queued.") + " Keep this page open and check the bot status.", "success");
       await refreshAccountStatus();
