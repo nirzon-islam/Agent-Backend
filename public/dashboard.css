@@ -78,3 +78,15 @@ button:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}
   .themeToggle{flex:1;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){body,.panel{transition:none}}
+
+/* Compact section navigation and refresh feedback */
+.toolbarTitle,.toolbarActions{display:flex;align-items:center;gap:12px}
+.toolbarTitle h2{margin:0}.toolbarActions{justify-content:flex-end;flex-wrap:wrap}
+.menuToggle{font-size:19px;min-width:44px;padding:8px 12px}
+.sectionMenu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:12px;margin:0 0 16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--panel-shadow)}
+.navItem{position:relative;background:var(--surface2);border:1px solid var(--line);color:var(--text);text-align:left}
+.navItem.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--surface2)}
+.navDot{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--bad);vertical-align:middle}
+.homeNotice{margin:0 0 16px;padding:13px 16px;border:1px solid var(--warn);border-radius:13px;background:var(--surface2);color:var(--text);font-weight:650}
+#refreshMessage{font-size:12px}.feedback.success{color:var(--good)}.feedback.error{color:var(--bad)}
+@media(max-width:650px){.toolbar{align-items:flex-start}.toolbarTitle{width:100%}.toolbarActions{width:100%;justify-content:space-between}.sectionMenu{grid-template-columns:repeat(2,minmax(0,1fr))}.toolbarActions #refreshMessage{flex-basis:100%}}
