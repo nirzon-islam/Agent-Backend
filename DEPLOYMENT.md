@@ -18,7 +18,7 @@ Use MongoDB Atlas or another MongoDB deployment that supports replica-set transa
 
 ## Required environment
 
-See `.env.example`. Set `MONGODB_URI`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`. Admin username must be 3–40 lowercase letters, digits, underscore or hyphen; password must be 12–128 characters. Use a unique password manager-generated password.
+See `.env.example`. Set `MONGODB_URI`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`. Admin username must be 3–40 lowercase letters, digits, underscore or hyphen; password must be 8–128 characters. Prefer a unique password-manager-generated password of at least 12 characters; the 8-character minimum is a compatibility floor, not a security recommendation.
 
 Optional AI keys are provider-specific. Do not assume a provider is active merely because a model name is present. Keep `BRIDGE_ENABLED=false` until database-backed integration tests and credential rotation are complete. Configure at least one AI provider key. If enabled later, `BRIDGE_SECRET` must be at least 32 characters and identical on the backend and bot.
 
