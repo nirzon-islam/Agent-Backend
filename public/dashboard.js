@@ -53,14 +53,15 @@
     $("sectionMenu").hidden = true;
     $("menuToggle").setAttribute("aria-expanded","false");
   }
-  function updateHomeNotice(approvalCount, taskCount) {
-    const notice=$("homeNotice"), parts=[];
-    if (approvalCount) parts.push(approvalCount+" approval"+(approvalCount===1?"":"s")+" waiting for review");
-    if (taskCount) parts.push(taskCount+" task"+(taskCount===1?"":"s")+" need attention");
-    notice.hidden=!parts.length;
-    notice.textContent=parts.length ? "🔔 "+parts.join(" • ")+" — open the menu to review." : "";
-    $("approvalNavDot").hidden=!approvalCount;
-    $("taskNavDot").hidden=!taskCount;
+  function updateHomeNotice(approvalCount) {
+    const notice=$("homeNotice");
+    const hasPendingApprovals=Number(approvalCount)>0;
+    notice.hidden=!hasPendingApprovals;
+    notice.textContent=hasPendingApprovals
+      ? "🔔 "+approvalCount+" approval"+(approvalCount===1?"":"s")+" waiting for your review — open Approvals."
+      : "";
+    $("approvalNavDot").hidden=!hasPendingApprovals;
+    $("taskNavDot").hidden=true;
   }
   function busy(button, yes, busyText, idleText) {
     button.disabled = yes; button.classList.toggle("is-loading", yes);
@@ -155,12 +156,11 @@
   });
   function renderApprovals(items) {
     $("pendingCount").textContent = items.length;
-    updateHomeNotice(items.length, Number($("taskCount").textContent)||0);
+    updateHomeNotice(items.length);
     $("approvals").innerHTML = items.length ? items.map(item => `<article class="item"><div class="itemTop"><strong>Approval • ${safe(item.approvalId)}</strong><span class="status">${safe(item.status)}</span></div><p>Task: ${safe(item.taskId)}<br>Requested by: ${safe(item.requestedBy)}<br>Expires: ${safe(item.expiresAt)}</p><pre>${safe(JSON.stringify(item.action,null,2))}</pre><div class="actions"><button class="approve" data-action="approve" data-id="${safe(item.approvalId)}">Approve</button><button class="reject" data-action="reject" data-id="${safe(item.approvalId)}">Reject</button></div></article>`).join("") : '<p class="muted">No pending approvals.</p>';
   }
   function renderTasks(items) {
     $("taskCount").textContent = items.length;
-    updateHomeNotice(Number($("pendingCount").textContent)||0, items.filter(task => ["failed","awaiting_approval","pending","running"].includes(String(task.status).toLowerCase())).length);
     $("tasks").innerHTML = items.length ? items.map(task => {
       let parsed = null;
       try { parsed = typeof task.result === "string" ? JSON.parse(task.result) : task.result; } catch {}
