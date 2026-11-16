@@ -14,8 +14,8 @@ const OPTIONS = {
 };
 
 async function hashPassword(password) {
-  if (typeof password !== "string" || password.length < 12) {
-    throw new Error("Password must be at least 12 characters.");
+  if (typeof password !== "string" || password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
   }
 
   const salt = crypto.randomBytes(16);
