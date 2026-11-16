@@ -70,12 +70,33 @@ async function bootstrapOwner() {
   );
 
   const existingOwner = await Admin.findOne({ role: "owner" });
+  const { username, password } = config.adminBootstrap;
+
+  // Explicit one-time credential sync for an existing staging Owner.
+  // This is disabled by default and must be removed from the environment after use.
+  if (existingOwner && process.env.ADMIN_BOOTSTRAP_SYNC === "true") {
+    if (!username || !password) {
+      throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD are required for Owner credential sync.");
+    }
+    const usernameInUse = await Admin.findOne({
+      username,
+      _id: { $ne: existingOwner._id }
+    });
+    if (usernameInUse) {
+      throw new Error("ADMIN_USERNAME is already assigned to another account.");
+    }
+    existingOwner.username = username;
+    existingOwner.passwordHash = await hashPassword(password);
+    existingOwner.isActive = true;
+    await existingOwner.save();
+    console.log("[Bootstrap] Existing Owner credentials synchronized.");
+    return;
+  }
+
   if (existingOwner) {
     console.log("[Bootstrap] Owner already exists. Skipping.");
     return;
   }
-
-  const { username, password } = config.adminBootstrap;
   if (!username || !password) {
     throw new Error("No Owner exists. Configure ADMIN_USERNAME and ADMIN_PASSWORD.");
   }
