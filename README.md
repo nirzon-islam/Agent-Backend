@@ -1,140 +1,103 @@
 # 🤖 Agent Backend by NirZon
 
-### A Secure AI-Powered Autonomous Coding Assistant for GoatBot Messenger
+### Secure AI Agent Backend for GoatBot Messenger
 
-Agent Backend is an AI-powered assistant designed to manage, analyze, debug, and maintain GoatBot projects through a web-based interface and Facebook Messenger.
+Agent Backend provides an Owner-controlled dashboard and Messenger-connected workflow for managing and maintaining a GoatBot project. It is designed to work with a GoatBot runtime hosted separately from this backend.
 
-It connects a dedicated AI backend with an existing GoatBot runtime, allowing users to communicate with one assistant from multiple platforms.
+## Features
 
----
+- Owner-authenticated web dashboard
+- Facebook Messenger intake and signed backend bridge
+- Main, Fallback and Backup AI provider slots configured from the Owner Dashboard
+- AI-assisted code analysis and task planning
+- Approval-controlled actions, task history and activity logs
+- Backup and rollback support for supported file changes
+- Facebook account/session reconnection workflow with account-ID validation and session verification
 
-## ✨ Features
+**Important:** A feature being present in the repository does not mean the full production flow has been validated against a live Facebook account. Reconnection and bridge behavior must be tested in a controlled environment before relying on them.
 
-- 🌐 **Web-Based AI Chat Interface**
-- 💬 **Facebook Messenger Integration**
-- 🧠 **Dashboard-Controlled AI Providers** — Main, Fallback, and Backup slots
-- 🔍 Automatic Code Analysis and Debugging
-- 🛠️ Command Creation and Editing
-- 📦 Command Installation and Deletion Management
-- 🔐 Approval-Based Execution System
-- 💾 Automatic Backups Before Modifications
-- ↩️ Rollback Support
-- 📋 Task History and Activity Logs
-- 🔗 Secure Railway-to-Render Communication
-- 🔄 **Facebook ID Reconnection** — Reconnect the GoatBot Facebook account through the Agent interface by securely providing updated login/session information, including a refreshed session cookie (AppState), with verification before the bot resumes.
-
----
-
-## 🏗️ Architecture
+## Architecture
 
 ```text
-             USER
-          /       \
-     WEBSITE    MESSENGER
-          \       /
-       AGENT BACKEND
-          (RENDER)
-              |
-       AI & TASK MANAGER
-              |
-      APPROVAL & SECURITY
-              |
-       SECURE API BRIDGE
-              |
-       GOATBOT (RAILWAY)
-              |
-        PROJECT FILES
+Owner / Messenger
+       |
+Agent Backend (Render)
+       |
+MongoDB + AI providers
+       |
+Signed bridge (opt-in)
+       |
+GoatBot runtime (Railway)
 ```
----
+
+## Requirements
+
+- Node.js 20.x
+- MongoDB deployment that supports replica-set transactions (MongoDB Atlas is recommended)
+- Render Web Service or another Node.js host
+- At least one supported AI provider configured from the Owner Dashboard
+- A GoatBot runtime only if using the Messenger/bridge integration
+
+## Deploy to Render
+
+1. Push or merge the reviewed code to the repository's `main` branch.
+2. In Render, create a **Web Service** from `nirzon-islam/Agent-Backend` and select `main`.
+3. Use:
+   - Runtime: Node
+   - Build command: `npm install` (or `npm ci` only if a lockfile is committed)
+   - Start command: `npm start`
+   - Health check path: `/api/health`
+4. Add the required environment variables from [`.env.example`](.env.example) in Render's Environment settings. Do not upload a real `.env` file.
+5. Deploy and verify that `/api/health` returns HTTP 200 with database status `connected`.
+6. Open the dashboard and sign in with the configured Owner credentials.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full environment-variable reference, MongoDB requirements and pre-deploy checklist.
+
+## Environment and AI providers
+
+Required for the first Owner bootstrap:
+
+- `MONGODB_URI`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+
+`AI_SETTINGS_ENCRYPTION_KEY` is required to save AI provider credentials in the dashboard. Generate 32 random bytes and encode them as 64 hexadecimal characters. Keep a secure backup: saved provider keys cannot be decrypted if this key is lost.
+
+Configure Main, Fallback and Backup providers in the Owner Dashboard. Provider credentials and model settings are stored by the dashboard; do not assume that adding a model name or an unrelated Render variable activates a provider.
+
+## GoatBot bridge (optional; disabled by default)
+
+Keep `BRIDGE_ENABLED=false` until the backend and the exact deployed GoatBot revision have passed end-to-end integration tests. If you later enable it:
+
+- Set a random `BRIDGE_SECRET` of at least 32 characters on the backend.
+- Configure the matching secret on the GoatBot side using the variable name required by that exact GoatBot revision.
+- Restrict allowed sender/owner IDs with the supported environment settings.
+- Verify signed requests, account status, approval flow and reconnect behavior before production use.
+
+Do not assume that deploying both repositories automatically connects them. Their bridge implementations and configuration must be compatible.
+
+## Facebook account/session reconnection
+
+The reconnection workflow is intended to accept refreshed session data through the protected Agent flow, validate the target Facebook account ID, and verify the candidate session before replacing the active session. Facebook may still require checkpoint or other manual security verification. Never share cookies/AppState in chat, issues, logs or source control. Use only accounts you own or are authorized to operate.
+
+## Security
+
+- Never commit `.env`, database dumps, Facebook cookies/AppState, API keys or passwords.
+- Use a unique Owner password (12+ characters recommended).
+- Keep `AI_SETTINGS_ENCRYPTION_KEY` backed up securely and never expose it.
+- Rotate any credential that has ever been committed to Git history.
+- Keep the bridge disabled until integration tests are complete.
+- Sensitive or destructive actions must remain approval-controlled.
+
+## Deployment notes
+
+- Render Free instances may sleep when inactive; they are not suitable for reliable always-on workers.
+- MongoDB must support replica-set transactions for the task/approval workflow.
+- The health endpoint reports database connectivity; a healthy response alone does not prove Messenger or bridge integration works.
 
 ## License
 
-Copyright (c) 2026 Md SalmaN(NirZon).
-
-All rights reserved.
-
-Unauthorized copying, modification, distribution, or commercial use of this project is prohibited without prior written permission from the copyright owner.
+Copyright (c) 2026 Md SalmaN (NirZon). All rights reserved. See the repository's license terms before redistributing.
 
 ---
-
-## 🧠 AI Providers
-
-The Owner dashboard includes three configurable AI slots: **Main**, **Fallback**, and **Backup**. Each slot supports Google Gemini or any public HTTPS OpenAI-compatible API (for example OpenRouter, Groq, DeepSeek, Together, or compatible hosted endpoints). AI provider credentials and model selection are controlled only from the Owner Dashboard; no provider API keys or model settings are read from Render Environment. The planner tries enabled slots in Main → Fallback → Backup order when a provider fails or returns invalid JSON. A structurally unsafe planner response is rejected rather than silently retried.
-
-To save dashboard API keys, set `AI_SETTINGS_ENCRYPTION_KEY` in Render Environment to a securely generated 64-character hexadecimal value (32 random bytes). Keys are encrypted at rest with AES-256-GCM; the dashboard only displays a masked hint. Keep this encryption key backed up securely. Losing it makes saved provider keys unreadable. Never commit the key to GitHub.
-
-Only the Owner can view or change provider settings. Use **Save AI Settings** and then **Test** each enabled slot. Base URLs must use public HTTPS hosts; localhost and private IP destinations are blocked.
-
-
-
----
-
-## 🔐 Security
-
-Security is a core part of this project.
-
-- No sensitive modifications without explicit user approval.
-- Backup before applying code changes.
-- Review changes before execution.
-- Validate code before applying changes.
-- Restricted project-file access.
-- Secure API communication.
-- Task and approval tracking.
-- Rollback support for recoverable changes.
-- Facebook login credentials and session cookies must be handled securely, never exposed in logs or task history, and used only for the explicitly approved reconnection process.
-
-> **The agent must never independently execute destructive or sensitive operations without authorization.**
-
----
-
-## ☁️ Deployment
-
-| Component | Platform |
-|---|---|
-| Source Code | GitHub |
-| Agent Backend | Render |
-| Existing GoatBot | Railway |
-| Database | Free-Tier External Database |
-| AI Providers | Free API Tiers |
-
----
-
-## 🚧 Development Status
-
-**Current Status: Under Development**
-
-### Development Roadmap
-
-- [x] Initial Configuration
-- [x] Security Foundation
-- [x] Approval System Foundation
-- [ ] Persistent Task Management
-- [ ] AI Provider Integration
-- [ ] Backend API
-- [ ] Website Interface
-- [ ] Railway Runtime Bridge
-- [ ] Messenger Integration
-- [ ] Facebook ID Reconnection Flow
-- [ ] Backup and Rollback Engine
-- [ ] Full Security Testing
-
----
-
-## ⚠️ Important Notes
-
-- This project follows a security-first approach.
-- Render Free services may sleep when inactive.
-- Free AI providers have rate limits.
-- Persistent database storage is required for reliable task history.
-- Facebook authentication and session recovery may require manual verification.
-- Facebook ID reconnection depends on valid, current login/session information and may require completing Facebook security checks or checkpoints.
-
----
-
-## 📜 License
-
-License and distribution terms will be defined before public release.
-
----
-
-### 💜 Built for Secure, Controlled, AI-Powered GoatBot Management.
+💜 Built for secure, controlled AI-powered GoatBot management.
