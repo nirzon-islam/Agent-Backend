@@ -26,8 +26,21 @@ async function callProvider(slot, prompt, timeoutMs = 25000, systemPrompt = SYST
   return data.choices?.[0]?.message?.content || "";
 }
 async function testProvider(slot) {
-  const value = await callProvider(slot, "Return a JSON object with one key status and value OK.", 25000);
+  // Keep the system and user instructions consistent with JSON mode.
+  // The previous default system prompt demanded plain "OK", conflicting with
+  // the JSON response_format and causing Groq to reject the test generation.
+  const value = await callProvider(
+    slot,
+    "Return a JSON object with one key named status and the string value OK.",
+    25000,
+    "You are testing an AI provider connection. Respond only with a valid JSON object. Do not return plain text or markdown."
+  );
   if (!value.trim()) throw new Error("Provider returned an empty response.");
+  try {
+    JSON.parse(value);
+  } catch {
+    throw new Error("Provider did not return valid JSON during the connection test.");
+  }
   return "Connected";
 }
 async function getConfiguredSlots() {
