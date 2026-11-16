@@ -37,19 +37,26 @@ router.put("/", async (req, res) => {
     for (const name of SLOT_NAMES) {
       const item = input[name];
       if (!item || typeof item !== "object") continue;
+      const previous = doc[name] || {};
+      const model = typeof item.model === "string" ? item.model.trim() : "";
+      const apiKey = typeof item.apiKey === "string" ? item.apiKey.trim() : "";
       if (typeof item.enabled !== "boolean" || !["openai-compatible","gemini"].includes(item.provider) ||
-          typeof item.model !== "string" || !item.model.trim() || item.model.length > 180 ||
-          typeof item.apiKey !== "string" || item.apiKey.length > 500) {
+          (item.enabled && (!model || model.length > 180 || apiKey.length > 500)) ||
+          (!item.enabled && (model.length > 180 || apiKey.length > 500))) {
         return res.status(400).json({ success:false, message:"Check provider, model and API key fields for " + name + "." });
       }
-      const baseUrl = item.provider === "openai-compatible" ? safeBaseUrl(item.baseUrl) : "";
-      const previous = doc[name] || {};
-      if (item.enabled && !item.apiKey.trim() && !previous.apiKeyEncrypted) {
+      if (item.enabled && !apiKey && !previous.apiKeyEncrypted) {
         return res.status(400).json({ success:false, message:"API key is required for enabled " + name + " slot." });
       }
-      doc[name] = { enabled:item.enabled, provider:item.provider, model:item.model.trim(), baseUrl,
-        apiKeyEncrypted:item.apiKey.trim() ? crypto.encrypt(item.apiKey.trim()) : (item.clearApiKey ? "" : previous.apiKeyEncrypted || ""),
-        keyHint:item.apiKey.trim() ? item.apiKey.trim().slice(-4) : (item.clearApiKey ? "" : previous.keyHint || "") };
+      // Disabled slots are optional: keep any saved configuration, but do not
+      // require a model, Base URL, or API key until the slot is enabled.
+      const baseUrl = item.provider === "openai-compatible"
+        ? (item.baseUrl ? safeBaseUrl(item.baseUrl) : (previous.baseUrl || ""))
+        : "";
+      doc[name] = { enabled:item.enabled, provider:item.provider,
+        model:model || previous.model || "", baseUrl,
+        apiKeyEncrypted:apiKey ? crypto.encrypt(apiKey) : (item.clearApiKey ? "" : previous.apiKeyEncrypted || ""),
+        keyHint:apiKey ? apiKey.slice(-4) : (item.clearApiKey ? "" : previous.keyHint || "") };
     }
     doc.updatedBy = req.user.username;
     await doc.save();
