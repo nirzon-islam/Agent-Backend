@@ -90,3 +90,7 @@ button:focus-visible{outline:3px solid var(--accent2);outline-offset:3px}
 .homeNotice{margin:0 0 16px;padding:13px 16px;border:1px solid var(--warn);border-radius:13px;background:var(--surface2);color:var(--text);font-weight:650}
 #refreshMessage{font-size:12px}.feedback.success{color:var(--good)}.feedback.error{color:var(--bad)}
 @media(max-width:650px){.toolbar{align-items:flex-start}.toolbarTitle{width:100%}.toolbarActions{width:100%;justify-content:space-between}.sectionMenu{grid-template-columns:repeat(2,minmax(0,1fr))}.toolbarActions #refreshMessage{flex-basis:100%}}
+
+/* Keep status semantics readable in both themes */
+.status.state-good{color:var(--good)!important;border-color:color-mix(in srgb,var(--good) 55%,var(--line))!important;background:color-mix(in srgb,var(--good) 10%,var(--surface2))!important}
+.status.state-bad{color:var(--bad)!important;border-color:color-mix(in srgb,var(--bad) 55%,var(--line))!important;background:color-mix(in srgb,var(--bad) 10%,var(--surface2))!important}
