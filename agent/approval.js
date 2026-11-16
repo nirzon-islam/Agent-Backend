@@ -35,7 +35,7 @@ function createId() {
   return crypto.randomBytes(24).toString("hex");
 }
 
-async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 * 60 * 1000 }) {
+async function requestApproval({ taskId, action, requestedBy, expiresInMs = 2 * 60 * 60 * 1000 }) {
   if (typeof taskId !== "string" || !taskId ||
       typeof requestedBy !== "string" || !requestedBy ||
       !action || typeof action !== "object" || Array.isArray(action) ||
@@ -45,7 +45,7 @@ async function requestApproval({ taskId, action, requestedBy, expiresInMs = 15 *
 
   if (action.type === "plan") validateExecutablePlan(action);
   else validateExecutableAction(action);
-  if (!["read", "create", "edit", "delete", "restore", "move", "mkdir", "rmdir", "install", "update", "restart", "test", "plan"].includes(action.type)) {
+  if (!["read", "list", "readMany", "create", "edit", "delete", "restore", "move", "mkdir", "rmdir", "install", "update", "restart", "test", "plan"].includes(action.type)) {
     throw new Error("Unsupported action type for approval workflow");
   }
   if (!Number.isFinite(expiresInMs) || expiresInMs < 60 * 1000 || expiresInMs > 24 * 60 * 60 * 1000) {

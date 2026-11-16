@@ -14,16 +14,18 @@ router.get("/", async (req, res) => {
     return res.json({
       success: true,
       account: {
-        state: stale ? "unknown" : record.state,
+        state: stale ? "unknown" : (record.sessionState || record.state || "unknown"),
+        sessionState: stale ? "unknown" : (record.sessionState || record.state || "unknown"),
+        workerState: stale ? "offline" : (record.workerState || "online"),
         accountId: record?.accountId || null,
-        message: stale ? "Bot heartbeat is missing or stale. Bot-side status reporting must be connected." : (record.message || null),
+        message: stale ? "GoatBot worker heartbeat is missing or stale." : (record.message || null),
         lastHeartbeatAt,
         changedAt: record?.changedAt || null
       },
       recovery: {
         automatedLogin: true,
         pendingHandoff: false,
-        note: "Submit a fresh appstate cookie for any Bot ID; the cookie c_user must match the ID entered. It is held temporarily in memory and delivered once to the connected GoatBot worker. Facebook checkpoints still require manual completion."
+        note: "Submit a fresh appstate cookie for any Facebook account. The Bot ID is detected automatically from its c_user cookie. It is held temporarily in memory and delivered once to the connected GoatBot worker. Facebook checkpoints still require manual completion."
       }
     });
   } catch (error) {
@@ -44,11 +46,9 @@ router.get("/recovery/:requestId", (req, res) => {
 // The credential is never written to MongoDB, task history, or application logs.
 router.post("/recovery", async (req, res) => {
   try {
-    const botId = typeof req.body.botId === "string" ? req.body.botId.trim() : "";
     const cookie = req.body.cookie;
-    if (!/^\d{5,30}$/.test(botId)) return res.status(400).json({ success: false, message: "Invalid Bot ID." });
-    const queued = recoveryQueue.submit({ botId, cookie, ownerId: req.user.id });
-    return res.status(202).json({ success: true, requestId: queued.requestId, expiresAt: queued.expiresAt,
+    const queued = recoveryQueue.submit({ cookie, ownerId: req.user.id });
+    return res.status(202).json({ success: true, requestId: queued.requestId, botId: queued.botId, expiresAt: queued.expiresAt,
       message: "Cookie accepted for one-time delivery. It expires in 2 minutes if the worker does not claim it." });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message || "Unable to queue recovery" });

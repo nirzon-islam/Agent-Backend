@@ -38,55 +38,39 @@ test("safeHashEqual only accepts matching SHA-256 hex digests", () => {
   assert.equal(security.safeHashEqual("invalid", hash), false);
 });
 
-test("protected action types require approval; read/test do not", () => {
-  assert.equal(security.checkActionPermission("read").requiresApproval, false);
-  assert.equal(security.checkActionPermission("test").requiresApproval, false);
-  assert.equal(security.checkActionPermission("edit").requiresApproval, true);
-  assert.equal(security.checkActionPermission("create").requiresApproval, true);
-  assert.equal(security.checkActionPermission("update").requiresApproval, true);
-  assert.equal(security.checkActionPermission("delete").requiresApproval, true);
-  assert.equal(security.checkActionPermission("restore").requiresApproval, true);
-  assert.equal(security.checkActionPermission("move").requiresApproval, true);
-  assert.equal(security.checkActionPermission("install").requiresApproval, true);
-  assert.throws(() => security.checkActionPermission("shell"));
+test("only read and test are approval-free; unsupported action types are rejected", () => {
+  assert.deepEqual(security.checkActionPermission("read"), { allowed: true, requiresApproval: false });
+  assert.deepEqual(security.checkActionPermission("test"), { allowed: true, requiresApproval: false });
+  assert.deepEqual(security.checkActionPermission("edit"), { allowed: false, requiresApproval: true });
+  assert.deepEqual(security.checkActionPermission("create"), { allowed: false, requiresApproval: true });
+  for (const type of ["update", "delete", "restore", "move", "install", "restart", "shell"]) {
+    assert.throws(() => security.checkActionPermission(type), /not allowed/);
+  }
 });
 
-test("executable action schema matches the server-side workspace executor", () => {
+test("executable action schema allows only bounded workspace file operations", () => {
   assert.equal(security.validateExecutableAction({
     type: "edit", path: "languages/bn.lang", content: "hello"
   }).type, "edit");
   assert.equal(security.validateExecutableAction({
+    type: "create", path: "scripts/events/onMessage.js", content: "module.exports = {};"
+  }).type, "create");
+  assert.equal(security.validateExecutableAction({
     type: "read", path: "languages/bn.lang"
   }).type, "read");
   assert.equal(security.validateExecutableAction({
-    type: "test", path: "languages/helper.js"
+    type: "test", path: "scripts/helper.js"
   }).type, "test");
   assert.equal(security.validateExecutableAction({
-    type: "delete", path: "languages/bn.lang"
-  }).type, "delete");
+    type: "list", path: "languages"
+  }).type, "list");
   assert.equal(security.validateExecutableAction({
-    type: "restore", path: "config.json", backupId: "a".repeat(64)
-  }).type, "restore");
-  assert.equal(security.validateExecutableAction({
-    type: "move", path: "config.json", destination: "config-old.json"
-  }).type, "move");
-  assert.equal(security.validateExecutableAction({
-    type: "install", manager: "npm-ci"
-  }).type, "install");
-  assert.equal(security.validateExecutableAction({
-    type: "update", manager: "npm-update"
-  }).type, "update");
-  assert.equal(security.validateExecutableAction({ type: "restart" }).type, "restart");
-  assert.throws(() => security.validateExecutableAction({ type: "install", manager: "shell" }), /approved npm/);
-  assert.equal(security.validateExecutableAction({
-    type: "edit", path: "scripts/cmds/admin.js", content: "x"
-  }).path, "scripts/cmds/admin.js");
-  assert.equal(security.validateExecutableAction({
-    type: "create", path: "scripts/events/onMessage.js", content: "module.exports = {};"
-  }).path, "scripts/events/onMessage.js");
-  assert.equal(security.validateExecutableAction({
-    type: "edit", path: "dashboard/admin.css", content: "x"
-  }).path, "dashboard/admin.css");
+    type: "readMany", path: "languages"
+  }).type, "readMany");
+
+  for (const type of ["delete", "restore", "move", "mkdir", "rmdir", "install", "update", "restart", "shell"]) {
+    assert.throws(() => security.validateExecutableAction({ type, path: "config.json" }));
+  }
   assert.throws(() => security.validateExecutableAction({
     type: "edit", path: ".env", content: "x"
   }), /outside the server workspace/);
@@ -94,13 +78,12 @@ test("executable action schema matches the server-side workspace executor", () =
     type: "edit", path: "languages/bn.lang", content: "x", command: "rm -rf"
   }), /invalid shape/);
   assert.throws(() => security.validateExecutableAction({
-    type: "edit", path: "languages/bn.lang", content: "x".repeat(262145)
-  }), /256 KiB/);
+    type: "edit", path: "languages/bn.lang", content: "x".repeat(65537)
+  }), /64 KiB/);
   assert.throws(() => security.validateExecutableAction({
     type: "test", path: "languages/file.lang"
   }), /JavaScript files/);
 });
-
 
 test("multi-step plans accept bounded read-only and file actions", () => {
   const plan = {
@@ -119,7 +102,7 @@ test("multi-step plans accept bounded read-only and file actions", () => {
 test("multi-step plans reject empty, oversized, and malformed plans", () => {
   assert.throws(() => security.validateExecutablePlan({ type: "plan", steps: [] }), /Invalid multi-step plan/);
   assert.throws(() => security.validateExecutablePlan({
-    type: "plan", steps: Array.from({ length: 21 }, () => ({ type: "list", path: "languages" }))
+    type: "plan", steps: Array.from({ length: 13 }, () => ({ type: "list", path: "languages" }))
   }), /Invalid multi-step plan/);
   assert.throws(() => security.validateExecutablePlan({
     type: "plan", steps: [{ type: "list", path: ".env" }]

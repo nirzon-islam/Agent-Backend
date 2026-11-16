@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#10131d">
+  <meta name="theme-color" content="#10131d" id="themeColorMeta">
   <title>Agent Control Center</title>
   <link rel="stylesheet" href="/dashboard.css">
   <script defer src="/dashboard.js"></script>
@@ -12,7 +12,7 @@
   <main class="shell">
     <header class="top">
       <div><p class="eyebrow">NIRZON • SECURE AUTOMATION</p><h1>Agent Control Center</h1><p class="muted">Messenger + Web dashboard • Owner approval required</p></div>
-      <span id="connection" class="pill">Offline</span>
+      <div class="headerActions"><button id="themeToggle" class="themeToggle secondary" type="button" aria-label="Switch to light theme" title="Switch theme"><span id="themeIcon" aria-hidden="true">☀️</span><span id="themeLabel">Light mode</span></button><span id="connection" class="pill">Offline</span></div>
     </header>
     <section id="loginPanel" class="panel login">
       <h2>Owner Login</h2><p class="muted">Sign in with your Agent Backend Owner account.</p>
@@ -24,36 +24,74 @@
       <p id="loginMessage" class="message" role="status"></p>
     </section>
     <section id="appPanel" hidden>
-      <div class="toolbar"><h2>Overview</h2><button id="refreshBtn" class="secondary">Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div>
-      <div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
+      <div class="toolbar"><div class="toolbarTitle"><button id="menuToggle" class="secondary menuToggle" type="button" aria-expanded="false" aria-controls="sectionMenu" aria-label="Open navigation">☰</button><h2 id="viewTitle">Home</h2></div><div class="toolbarActions"><span id="refreshMessage" class="muted" role="status" aria-live="polite"></span><button id="refreshBtn" class="secondary" type="button">↻ Refresh</button><button id="logoutBtn" class="secondary">Sign out</button></div></div><nav id="sectionMenu" class="sectionMenu" hidden aria-label="Dashboard sections"><button type="button" class="navItem active" data-view="home">⌂ Home</button><button type="button" class="navItem" data-view="ai">✧ AI Settings</button><button type="button" class="navItem" data-view="approvals">✓ Approvals <span id="approvalNavDot" class="navDot" hidden></span></button><button type="button" class="navItem" data-view="tasks">☷ Agent Tasks <span id="taskNavDot" class="navDot" hidden></span></button></nav><div id="homeNotice" class="homeNotice" role="status" aria-live="polite" hidden></div>
+      <section id="homeView" class="viewPanel"><div class="stats"><article class="panel"><span>Pending approvals</span><strong id="pendingCount">0</strong></article><article class="panel"><span>Recent tasks</span><strong id="taskCount">0</strong></article></div>
       <section class="panel" id="accountPanel">
-        <div class="sectionHead"><h2>Facebook Account Monitor</h2><span id="accountState" class="status">Checking…</span></div>
+        <div class="sectionHead"><h2>Facebook Account Monitor</h2></div>
+        <div class="actions statusRow"><span class="muted">GoatBot Worker</span><span id="workerState" class="status">Checking…</span><span class="muted">Facebook Session</span><span id="accountState" class="status">Checking…</span></div>
         <p id="accountMessage" class="muted">Waiting for the bot to report its session status.</p>
         <div class="meta">Account: <strong id="accountId">Not reported</strong> · Last heartbeat: <span id="accountHeartbeat">—</span></div>
         <p id="recoveryNote" class="muted">This dashboard never stores Facebook passwords, 2FA codes, or appstate. Security checkpoints must be completed manually.</p>
         <div id="recoveryFormPanel" hidden>
-          <h3>Restore GoatBot Session</h3>
-          <p class="muted">Enter any Facebook Bot ID and its fresh session cookie. It is sent once to Railway and is not saved in task history.</p>
+          <h3>Start Facebook Login</h3>
+          <p class="muted">Choose any Facebook account: paste its appstate cookie. The Bot ID is detected automatically. The cookie is sent once to Railway for login and is not saved in task history.</p>
           <form id="recoveryForm">
-            <label>Bot ID<input id="recoveryBotId" inputmode="numeric" autocomplete="off" maxlength="30" required></label>
-            <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the complete account.txt JSON array here (not key=value; format)." required></textarea><small class="muted">Use the same full JSON array format as account.txt. Keep every cookie object and its metadata; c_user must match the Bot ID above.</small></label>
-            <div class="actions"><button id="submitRecovery" type="submit">Send secure recovery</button><span id="recoveryMessage" class="muted" role="status"></span></div>
+            <label>New Facebook cookie / appstate<textarea id="recoveryCookie" rows="6" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the complete account.txt JSON array here (not key=value; format)." required></textarea><small class="muted">Use the same full JSON array format as account.txt. Keep every cookie object and its metadata; the c_user cookie identifies the account.</small></label>
+            <div class="actions"><button id="submitRecovery" type="submit">Login with Facebook Cookie</button><span id="recoveryMessage" class="muted" role="status"></span></div>
             <ol id="recoveryTimeline" class="muted" aria-live="polite"></ol>
           </form>
         </div>
         <button id="enableNotifications" class="secondary" type="button">Enable browser alerts</button>
         <span id="notificationMessage" class="muted" role="status"></span>
       </section>
-      <section class="panel">
+      </section><section id="aiView" class="viewPanel" hidden><section class="panel" id="aiSettingsPanel">
+        <div class="sectionHead"><h2>AI Provider Settings</h2><span class="muted">Main → Fallback → Backup</span></div>
+        <p class="muted">প্রতিটি slot-এ আলাদা provider ও model বসাও। API key ফাঁকা রাখলে আগের key থাকবে।</p>
+        <div class="aiGrid">
+          <article class="aiSlot"><h3>Main AI</h3>
+            <label><input id="ai-main-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-main-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-main-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-main-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-main-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-main-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-main-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="main">Test Main</button>
+          </article>
+          <article class="aiSlot"><h3>Fallback AI</h3>
+            <label><input id="ai-fallback-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-fallback-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-fallback-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-fallback-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-fallback-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-fallback-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-fallback-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="fallback">Test Fallback</button>
+          </article>
+          <article class="aiSlot"><h3>Backup AI</h3>
+            <label><input id="ai-backup-enabled" type="checkbox" checked> Enable this slot</label>
+            <label>Provider<select id="ai-backup-provider"><option value="openai-compatible">OpenAI Compatible (OpenRouter, Groq, DeepSeek etc.)</option><option value="gemini">Google Gemini</option></select></label>
+            <label>Model<input id="ai-backup-model" maxlength="180" placeholder="model-name"></label>
+            <label>Base URL<input id="ai-backup-url" placeholder="https://api.example.com/v1"></label>
+            <label>API Key<input id="ai-backup-key" type="password" autocomplete="new-password" placeholder="New key (leave blank to keep saved key)"></label>
+            <label><input id="ai-backup-clear" type="checkbox"> Clear saved API key</label>
+            <small id="ai-backup-hint" class="muted">No key saved</small>
+            <button type="button" class="secondary" data-ai-test="backup">Test Backup</button>
+          </article>
+        </div>
+        <div class="actions"><button id="saveAISettings" type="button">Save AI Settings</button><span id="aiSettingsMessage" class="feedback" role="status"></span></div>
+      </section>
+      </section><section id="tasksView" class="viewPanel" hidden><section class="panel">
         <div class="sectionHead"><h2>New Agent Request</h2><span class="muted">AI plans first • Owner approves</span></div>
         <form id="requestForm" class="requestForm">
           <label for="requestDescription">What should the Agent do?</label>
           <textarea id="requestDescription" rows="4" minlength="3" maxlength="2000" placeholder="Describe the task in natural language…" required></textarea>
           <div class="actions"><button id="submitRequest" type="submit">Ask AI to plan</button><span id="requestMessage" class="muted" role="status"></span></div>
         </form>
-      </section>
-      <section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
       <section class="panel"><div class="sectionHead"><h2>Recent Tasks</h2><span class="muted">Messenger and website activity</span></div><div id="tasks" class="items"><p class="muted">No tasks loaded.</p></div></section>
+      </section>
+      </section><section id="approvalsView" class="viewPanel" hidden><section class="panel"><div class="sectionHead"><h2>Approval Queue</h2><span class="muted">Review before execution</span></div><div id="approvals" class="items"><p class="muted">No approvals loaded.</p></div></section>
+      </section>
     </section>
     <footer>Agent Backend • Actions remain blocked until Owner approval.</footer>
   </main>

@@ -12,9 +12,7 @@ It connects a dedicated AI backend with an existing GoatBot runtime, allowing us
 
 - 🌐 **Web-Based AI Chat Interface**
 - 💬 **Facebook Messenger Integration**
-- 🧠 **Gemini AI** — Primary AI
-- ⚡ **Groq** — First Fallback
-- ☁️ **Cloudflare Workers AI** — Additional Fallback
+- 🧠 **Dashboard-Controlled AI Providers** — Main, Fallback, and Backup slots
 - 🔍 Automatic Code Analysis and Debugging
 - 🛠️ Command Creation and Editing
 - 📦 Command Installation and Deletion Management
@@ -61,13 +59,13 @@ Unauthorized copying, modification, distribution, or commercial use of this proj
 
 ## 🧠 AI Providers
 
-| Provider | Purpose |
-|---|---|
-| Gemini | Primary AI |
-| Groq | First Fallback |
-| Cloudflare Workers AI | Additional Fallback |
+The Owner dashboard includes three configurable AI slots: **Main**, **Fallback**, and **Backup**. Each slot supports Google Gemini or any public HTTPS OpenAI-compatible API (for example OpenRouter, Groq, DeepSeek, Together, or compatible hosted endpoints). AI provider credentials and model selection are controlled only from the Owner Dashboard; no provider API keys or model settings are read from Render Environment. The planner tries enabled slots in Main → Fallback → Backup order when a provider fails or returns invalid JSON. A structurally unsafe planner response is rejected rather than silently retried.
 
-**Note:** The project aims to use free API tiers. Availability and usage are subject to each provider's limits.
+To save dashboard API keys, set `AI_SETTINGS_ENCRYPTION_KEY` in Render Environment to a securely generated 64-character hexadecimal value (32 random bytes). Keys are encrypted at rest with AES-256-GCM; the dashboard only displays a masked hint. Keep this encryption key backed up securely. Losing it makes saved provider keys unreadable. Never commit the key to GitHub.
+
+Only the Owner can view or change provider settings. Use **Save AI Settings** and then **Test** each enabled slot. Base URLs must use public HTTPS hosts; localhost and private IP destinations are blocked.
+
+
 
 ---
 

@@ -11,7 +11,7 @@ function loadConfig(extraEnv = {}) {
   const script = "const c=require(" + JSON.stringify(configPath) + "); process.stdout.write(JSON.stringify({enabled:c.bridge.enabled, secretLength:c.bridge.secret.length}));";
   return spawnSync(process.execPath, ["-e", script], {
     encoding: "utf8",
-    env: { ...process.env, BRIDGE_ENABLED: "", BRIDGE_SECRET: "", ...extraEnv }
+    env: { ...process.env, ADMIN_USERNAME: "", ADMIN_PASSWORD: "", BRIDGE_ENABLED: "", BRIDGE_SECRET: "", ...extraEnv }
   });
 }
 
@@ -19,6 +19,15 @@ test("Bridge is disabled by default", () => {
   const result = loadConfig();
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { enabled: false, secretLength: 0 });
+});
+
+test("Admin password accepts 8 characters and rejects fewer than 8", () => {
+  const tooShort = loadConfig({ ADMIN_USERNAME: "testadmin", ADMIN_PASSWORD: "1234567" });
+  assert.notEqual(tooShort.status, 0);
+  assert.match(tooShort.stderr, /ADMIN_PASSWORD must be 8-128 characters/);
+
+  const minimum = loadConfig({ ADMIN_USERNAME: "testadmin", ADMIN_PASSWORD: "12345678" });
+  assert.equal(minimum.status, 0, minimum.stderr);
 });
 
 test("Bridge requires a sufficiently long secret when enabled", () => {

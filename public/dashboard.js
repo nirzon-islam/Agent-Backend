@@ -1,6 +1,31 @@
 "use strict";
 (() => {
   const $ = id => document.getElementById(id);
+  const themeStorageKey = "agent_dashboard_theme";
+  function applyTheme(theme) {
+    const selected = theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = selected;
+    const light = selected === "light";
+    const toggle = $("themeToggle");
+    if (toggle) {
+      toggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+      toggle.title = light ? "Switch to dark theme" : "Switch to light theme";
+    }
+    if ($("themeIcon")) $("themeIcon").textContent = light ? "🌙" : "☀️";
+    if ($("themeLabel")) $("themeLabel").textContent = light ? "Dark mode" : "Light mode";
+    const meta = $("themeColorMeta");
+    if (meta) meta.setAttribute("content", light ? "#f3f6fc" : "#080d18");
+  }
+  const savedTheme = localStorage.getItem(themeStorageKey);
+  applyTheme(savedTheme || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+  document.addEventListener("DOMContentLoaded", () => {
+    const toggle = $("themeToggle");
+    if (toggle) toggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      localStorage.setItem(themeStorageKey, next);
+      applyTheme(next);
+    });
+  });
   let token = sessionStorage.getItem("agent_owner_token") || "";
   const headers = () => ({ "content-type": "application/json", authorization: "Bearer " + token });
   async function api(path, options = {}) {
@@ -15,29 +40,103 @@
     const el = $(id); el.textContent = message; el.className = "feedback " + kind;
     el.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
   }
+  function setView(view) {
+    const views = {home:"Home",ai:"AI Settings",approvals:"Approvals",tasks:"Agent Tasks"};
+    const selected = views[view] ? view : "home";
+    for (const [key,id] of Object.entries({home:"homeView",ai:"aiView",approvals:"approvalsView",tasks:"tasksView"})) $(id).hidden = key !== selected;
+    $("viewTitle").textContent = views[selected];
+    document.querySelectorAll(".navItem").forEach(button => {
+      const active = button.dataset.view === selected;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-current",active ? "page" : "false");
+    });
+    $("sectionMenu").hidden = true;
+    $("menuToggle").setAttribute("aria-expanded","false");
+  }
+  function updateHomeNotice(approvalCount) {
+    const notice=$("homeNotice");
+    const hasPendingApprovals=Number(approvalCount)>0;
+    notice.hidden=!hasPendingApprovals;
+    notice.textContent=hasPendingApprovals
+      ? "🔔 "+approvalCount+" approval"+(approvalCount===1?"":"s")+" waiting for your review — open Approvals."
+      : "";
+    $("approvalNavDot").hidden=!hasPendingApprovals;
+    $("taskNavDot").hidden=true;
+  }
   function busy(button, yes, busyText, idleText) {
     button.disabled = yes; button.classList.toggle("is-loading", yes);
     button.textContent = yes ? busyText : idleText;
     button.setAttribute("aria-busy", String(yes));
   }
+
+  const aiSlotNames = ["main","fallback","backup"];
+  let aiSettingsLoaded = false;
+  async function loadAISettings() {
+    if (aiSettingsLoaded) return;
+    const data = await api("/api/ai-settings/");
+    for (const name of aiSlotNames) {
+      const slot = data.slots?.[name] || {};
+      $("ai-"+name+"-enabled").checked = !!slot.enabled;
+      $("ai-"+name+"-provider").value = slot.provider || "openai-compatible";
+      $("ai-"+name+"-model").value = slot.model || "";
+      $("ai-"+name+"-url").value = slot.baseUrl || "";
+      $("ai-"+name+"-key").value = "";
+      $("ai-"+name+"-clear").checked = false;
+      $("ai-"+name+"-hint").textContent = slot.configured ? "Saved key ••••"+(slot.keyHint || "") : "No key saved";
+    }
+    aiSettingsLoaded = true;
+  }
+  $("saveAISettings").addEventListener("click", async () => {
+    const button=$("saveAISettings"); busy(button,true,"Saving…","Save AI Settings");
+    try {
+      const slots={};
+      for (const name of aiSlotNames) slots[name]={
+        enabled:$("ai-"+name+"-enabled").checked,
+        provider:$("ai-"+name+"-provider").value,
+        model:$("ai-"+name+"-model").value.trim(),
+        baseUrl:$("ai-"+name+"-url").value.trim(),
+        apiKey:$("ai-"+name+"-key").value,
+        clearApiKey:$("ai-"+name+"-clear").checked
+      };
+      const result=await api("/api/ai-settings/",{method:"PUT",body:JSON.stringify({slots})});
+      for (const name of aiSlotNames) $("ai-"+name+"-key").value="";
+      feedback("aiSettingsMessage",result.message || "Saved.","success");
+      await loadAISettings();
+    } catch(error) { feedback("aiSettingsMessage",error.message,"error"); }
+    finally { busy(button,false,"Saving…","Save AI Settings"); }
+  });
+  $("aiSettingsPanel").addEventListener("click", async event => {
+    const button=event.target.closest("button[data-ai-test]");
+    if (!button) return;
+    const slot=button.dataset.aiTest;
+    button.disabled=true;
+    try {
+      const result=await api("/api/ai-settings/test",{method:"POST",body:JSON.stringify({slot})});
+      feedback("aiSettingsMessage",result.message,"success");
+    } catch(error) { feedback("aiSettingsMessage",slot+" test failed: "+error.message,"error"); }
+    finally { button.disabled=false; }
+  });
+
   let previousAccountState = "";
   let activeRecoveryRequestId = "";
   async function refreshAccountStatus() {
     const data = await api("/api/account/status");
     const account = data.account || {};
-    const state = account.state || "unknown";
-    const labels = { online: "Online", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Not connected" };
-    $("accountState").textContent = labels[state] || state;
-    $("accountState").className = "status " + (state === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(state) ? "state-bad" : ""));
-    $("accountMessage").textContent = account.message || (state === "online" ? "Bot session is reporting as active." : "No current bot session heartbeat.");
+    const sessionState = account.sessionState || account.state || "unknown";
+    const workerState = account.workerState || "unknown";
+    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Unknown" };
+    const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown" };
+    $("workerState").textContent = workerLabels[workerState] || workerState;
+    $("workerState").className = "status " + (workerState === "online" ? "state-good" : (workerState === "offline" ? "state-bad" : ""));
+    $("accountState").textContent = sessionLabels[sessionState] || sessionState;
+    $("accountState").className = "status " + (sessionState === "online" ? "state-good" : (["logged_out", "checkpoint", "error"].includes(sessionState) ? "state-bad" : ""));
+    $("accountMessage").textContent = account.message || (sessionState === "online" ? "Facebook authentication is active." : "Facebook authentication is not confirmed.");
     $("accountId").textContent = account.accountId || "Not reported";
-    if (account.accountId && !$("recoveryBotId").value) $("recoveryBotId").value = account.accountId;
-    // Keep recovery available even while the current session reports online: this flow refreshes the same Bot ID session.
     $("recoveryFormPanel").hidden = false;
     $("accountHeartbeat").textContent = account.lastHeartbeatAt ? new Date(account.lastHeartbeatAt).toLocaleString() : "—";
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
-    if (previousAccountState && previousAccountState !== state && state !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot account status: " + (labels[state] || state) });
-    previousAccountState = state;
+    if (previousAccountState && previousAccountState !== sessionState && sessionState !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot session: " + (sessionLabels[sessionState] || sessionState) });
+    previousAccountState = sessionState;
   }
   $("enableNotifications").addEventListener("click", async () => {
     if (!("Notification" in window)) { $("notificationMessage").textContent = "Browser notifications are not supported."; return; }
@@ -56,6 +155,7 @@
   });
   function renderApprovals(items) {
     $("pendingCount").textContent = items.length;
+    updateHomeNotice(items.length);
     $("approvals").innerHTML = items.length ? items.map(item => `<article class="item"><div class="itemTop"><strong>Approval • ${safe(item.approvalId)}</strong><span class="status">${safe(item.status)}</span></div><p>Task: ${safe(item.taskId)}<br>Requested by: ${safe(item.requestedBy)}<br>Expires: ${safe(item.expiresAt)}</p><pre>${safe(JSON.stringify(item.action,null,2))}</pre><div class="actions"><button class="approve" data-action="approve" data-id="${safe(item.approvalId)}">Approve</button><button class="reject" data-action="reject" data-id="${safe(item.approvalId)}">Reject</button></div></article>`).join("") : '<p class="muted">No pending approvals.</p>';
   }
   function renderTasks(items) {
@@ -86,15 +186,22 @@
   });
 
   async function refresh() {
+    const button=$("refreshBtn");
+    if (button && !button.disabled) busy(button,true,"Refreshing…","↻ Refresh");
+    feedback("refreshMessage","Updating dashboard…","loading");
     try {
       const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
       renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
       await refreshAccountStatus();
+      await loadAISettings();
       $("connection").textContent = "Connected"; $("connection").className = "pill pill-good";
+      feedback("refreshMessage","✓ Updated just now","success");
     } catch(error) {
       if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
-      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad"; feedback("loginMessage", error.message, "error");
-    }
+      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad";
+      feedback("refreshMessage","Refresh failed: "+error.message,"error");
+      feedback("loginMessage",error.message,"error");
+    } finally { if (button) busy(button,false,"Refreshing…","↻ Refresh"); }
   }
 
   async function refreshRecoveryProgress() {
@@ -117,24 +224,24 @@
   $("recoveryForm").addEventListener("submit", async event => {
     event.preventDefault();
     const button = $("submitRecovery");
-    const botId = $("recoveryBotId").value.trim();
     const cookie = $("recoveryCookie").value;
-    if (!botId || !cookie.trim()) return;
-    busy(button, true, "Sending securely…", "Send secure recovery");
-    feedback("recoveryMessage", "Sending one-time recovery handoff…", "loading");
+    if (!cookie.trim()) return;
+    busy(button, true, "Sending securely…", "Login with Facebook Cookie");
+    feedback("recoveryMessage", "Sending one-time Facebook login handoff…", "loading");
     try {
       const result = await api("/api/account/status/recovery", {
         method: "POST",
-        body: JSON.stringify({ botId, cookie })
+        body: JSON.stringify({ cookie })
       });
       $("recoveryCookie").value = "";
       activeRecoveryRequestId = result.requestId || "";
+      if (result.botId) $("accountMessage").textContent = "Detected Facebook Bot ID: " + result.botId + ". Login handoff queued.";
       await refreshRecoveryProgress();
-      feedback("recoveryMessage", (result.message || "Recovery handoff queued.") + " Keep this page open and check the bot status.", "success");
+      feedback("recoveryMessage", (result.message || "Facebook login handoff queued.") + " Keep this page open and check the bot status.", "success");
       await refreshAccountStatus();
     } catch (error) {
       feedback("recoveryMessage", error.message, "error");
-    } finally { busy(button, false, "Sending securely…", "Send secure recovery"); }
+    } finally { busy(button, false, "Sending securely…", "Login with Facebook Cookie"); }
   });
 
   $("requestForm").addEventListener("submit", async event => {
@@ -166,7 +273,10 @@
     try { await api("/api/approvals/" + encodeURIComponent(button.dataset.id) + "/" + button.dataset.action, {method:"POST",body:"{}"}); await refresh(); }
     catch(error) { alert(error.message); button.disabled=false; }
   });
-  $("refreshBtn").addEventListener("click", refresh);
+  $("refreshBtn").addEventListener("click", () => { if (!$("refreshBtn").disabled) void refresh(); });
+  $("menuToggle").addEventListener("click", () => { const menu=$("sectionMenu"), opening=menu.hidden; menu.hidden=!opening; $("menuToggle").setAttribute("aria-expanded",String(opening)); });
+  $("sectionMenu").addEventListener("click", event => { const button=event.target.closest(".navItem"); if (button) setView(button.dataset.view); });
+  setView("home");
   setInterval(() => { if (token && activeRecoveryRequestId && !document.hidden) void refreshRecoveryProgress(); }, 3000);
   $("logoutBtn").addEventListener("click", () => { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); });
   if (token) { showApp(true); refresh(); setInterval(() => { if (token && !document.hidden) refresh(); }, 15000); } else showApp(false);

@@ -9,7 +9,7 @@ const router = express.Router();
 const Task = require("../models/Task");
 const security = require("../security");
 const { reconcileExpiredTasks, decideApproval } = require("../approval");
-const { planTask } = require("../planner");
+const { schedulePlanTask } = require("../planner");
 const BotAccountStatus = require("../models/BotAccountStatus");
 
 // Register the Approval model.
@@ -41,19 +41,12 @@ router.post("/requests", async (req, res) => {
       status: "pending"
     });
 
-    try {
-      const planning = await planTask(task.taskId);
-      return res.status(201).json({
-        success: true,
-        task: { taskId: task.taskId, status: planning.status, source: task.source, actionType: planning.actionType, approvalId: planning.approvalId }
-      });
-    } catch (planningError) {
-      return res.status(202).json({
-        success: true,
-        task: { taskId: task.taskId, status: "failed", source: task.source },
-        message: "Request was saved but could not be planned. Check AI provider configuration and task details."
-      });
-    }
+    schedulePlanTask(task.taskId, "messenger");
+    return res.status(202).json({
+      success: true,
+      task: { taskId: task.taskId, status: "pending", source: task.source },
+      message: "Request queued for AI planning. Check task status shortly; Owner approval is required before execution."
+    });
   } catch (error) {
     console.error("[Bridge Request]", error.message);
     return res.status(503).json({ success: false, message: "Unable to submit Messenger request" });
@@ -436,15 +429,18 @@ router.post("/result", async (req, res) => {
 // Railway bot reports account/session health using the signed service bridge.
 router.post("/account-status", async (req, res) => {
   try {
-    const state = typeof req.body.state === "string" ? req.body.state : "";
-    const allowed = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
+    const legacyState = typeof req.body.state === "string" ? req.body.state : "";
+    const sessionState = typeof req.body.sessionState === "string" ? req.body.sessionState : legacyState;
+    const workerState = typeof req.body.workerState === "string" ? req.body.workerState : "unknown";
+    const allowedSessions = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
+    const allowedWorkers = new Set(["online", "offline", "unknown"]);
     const accountId = typeof req.body.accountId === "string" ? req.body.accountId.trim().slice(0, 128) : "";
     const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 500) : "";
-    if (!allowed.has(state)) return res.status(400).json({ success: false, message: "Invalid account state" });
+    if (!allowedSessions.has(sessionState) || !allowedWorkers.has(workerState)) return res.status(400).json({ success: false, message: "Invalid worker or Facebook session state" });
     const now = new Date();
     const record = await BotAccountStatus.findOneAndUpdate(
       { key: "primary" },
-      { $set: { state, accountId: accountId || null, message: message || null, lastHeartbeatAt: now },
+      { $set: { state: sessionState, sessionState, workerState, accountId: accountId || null, message: message || null, lastHeartbeatAt: now },
         $setOnInsert: { key: "primary" } },
       { new: true, upsert: true, runValidators: true }
     ).lean();
