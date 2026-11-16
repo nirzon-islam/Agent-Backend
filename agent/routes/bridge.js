@@ -18,6 +18,12 @@ require("../approval");
 const Approval = mongoose.model("AgentApproval");
 
 
+// Owner sender IDs are implicitly allowed to submit and inspect their own Messenger tasks.
+function isAllowedMessengerSender(senderId) {
+  return typeof senderId === "string" && senderId.length > 0 &&
+    (config.bridge.allowedSenderIds.includes(senderId) || config.bridge.ownerSenderIds.includes(senderId));
+}
+
 // Messenger requests are planned into a validated action and sent to Owner approval.
 // This endpoint never executes an action.
 router.post("/requests", async (req, res) => {
@@ -25,7 +31,7 @@ router.post("/requests", async (req, res) => {
     const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
     const description = typeof req.body.description === "string" ? req.body.description.trim() : "";
 
-    if (!senderId || senderId.length > 128 || !config.bridge.allowedSenderIds.includes(senderId)) {
+    if (!senderId || senderId.length > 128 || !isAllowedMessengerSender(senderId)) {
       return res.status(403).json({ success: false, message: "Sender is not allowed" });
     }
     if (description.length < 3 || description.length > 2000) {
@@ -58,7 +64,7 @@ router.post("/status", async (req, res) => {
   try {
     const senderId = typeof req.body.senderId === "string" ? req.body.senderId.trim() : "";
     const taskId = typeof req.body.taskId === "string" ? req.body.taskId.trim() : "";
-    if (!senderId || !config.bridge.allowedSenderIds.includes(senderId) ||
+    if (!senderId || !isAllowedMessengerSender(senderId) ||
         !taskId || taskId.length > 128) {
       return res.status(400).json({ success: false, message: "Invalid status request" });
     }
