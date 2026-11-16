@@ -228,8 +228,8 @@
     const botId = $("recoveryBotId").value.trim();
     const cookie = $("recoveryCookie").value;
     if (!botId || !cookie.trim()) return;
-    busy(button, true, "Sending securely…", "Send secure recovery");
-    feedback("recoveryMessage", "Sending one-time recovery handoff…", "loading");
+    busy(button, true, "Sending securely…", "Login with Facebook Cookie");
+    feedback("recoveryMessage", "Sending one-time Facebook login handoff…", "loading");
     try {
       const result = await api("/api/account/status/recovery", {
         method: "POST",
@@ -238,11 +238,11 @@
       $("recoveryCookie").value = "";
       activeRecoveryRequestId = result.requestId || "";
       await refreshRecoveryProgress();
-      feedback("recoveryMessage", (result.message || "Recovery handoff queued.") + " Keep this page open and check the bot status.", "success");
+      feedback("recoveryMessage", (result.message || "Facebook login handoff queued.") + " Keep this page open and check the bot status.", "success");
       await refreshAccountStatus();
     } catch (error) {
       feedback("recoveryMessage", error.message, "error");
-    } finally { busy(button, false, "Sending securely…", "Send secure recovery"); }
+    } finally { busy(button, false, "Sending securely…", "Login with Facebook Cookie"); }
   });
 
   $("requestForm").addEventListener("submit", async event => {
