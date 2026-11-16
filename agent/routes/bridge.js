@@ -431,7 +431,7 @@ router.post("/account-status", async (req, res) => {
   try {
     const legacyState = typeof req.body.state === "string" ? req.body.state : "";
     const sessionState = typeof req.body.sessionState === "string" ? req.body.sessionState : legacyState;
-    const workerState = typeof req.body.workerState === "string" ? req.body.workerState : "online";
+    const workerState = typeof req.body.workerState === "string" ? req.body.workerState : "unknown";
     const allowedSessions = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
     const allowedWorkers = new Set(["online", "offline", "unknown"]);
     const accountId = typeof req.body.accountId === "string" ? req.body.accountId.trim().slice(0, 128) : "";
