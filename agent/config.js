@@ -43,7 +43,7 @@ if (hasUsername !== hasPassword) {
 }
 if (hasUsername) {
   if (!/^[a-z0-9_-]{3,40}$/.test(config.adminBootstrap.username)) throw new Error("Invalid ADMIN_USERNAME format.");
-  if (config.adminBootstrap.password.length < 12 || config.adminBootstrap.password.length > 128) throw new Error("ADMIN_PASSWORD must be 12-128 characters.");
+  if (config.adminBootstrap.password.length < 8 || config.adminBootstrap.password.length > 128) throw new Error("ADMIN_PASSWORD must be 8-128 characters.");
 }
 
 if (config.bridge.enabled && config.bridge.secret.length < 32) {
