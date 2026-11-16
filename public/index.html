@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#10131d">
+  <meta name="theme-color" content="#10131d" id="themeColorMeta">
   <title>Agent Control Center</title>
   <link rel="stylesheet" href="/dashboard.css">
   <script defer src="/dashboard.js"></script>
@@ -12,7 +12,7 @@
   <main class="shell">
     <header class="top">
       <div><p class="eyebrow">NIRZON • SECURE AUTOMATION</p><h1>Agent Control Center</h1><p class="muted">Messenger + Web dashboard • Owner approval required</p></div>
-      <span id="connection" class="pill">Offline</span>
+      <div class="headerActions"><button id="themeToggle" class="themeToggle secondary" type="button" aria-label="Switch to light theme" title="Switch theme"><span id="themeIcon" aria-hidden="true">☀️</span><span id="themeLabel">Light mode</span></button><span id="connection" class="pill">Offline</span></div>
     </header>
     <section id="loginPanel" class="panel login">
       <h2>Owner Login</h2><p class="muted">Sign in with your Agent Backend Owner account.</p>
