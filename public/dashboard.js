@@ -1,6 +1,31 @@
 "use strict";
 (() => {
   const $ = id => document.getElementById(id);
+  const themeStorageKey = "agent_dashboard_theme";
+  function applyTheme(theme) {
+    const selected = theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = selected;
+    const light = selected === "light";
+    const toggle = $("themeToggle");
+    if (toggle) {
+      toggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+      toggle.title = light ? "Switch to dark theme" : "Switch to light theme";
+    }
+    if ($("themeIcon")) $("themeIcon").textContent = light ? "🌙" : "☀️";
+    if ($("themeLabel")) $("themeLabel").textContent = light ? "Dark mode" : "Light mode";
+    const meta = $("themeColorMeta");
+    if (meta) meta.setAttribute("content", light ? "#f3f6fc" : "#080d18");
+  }
+  const savedTheme = localStorage.getItem(themeStorageKey);
+  applyTheme(savedTheme || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+  document.addEventListener("DOMContentLoaded", () => {
+    const toggle = $("themeToggle");
+    if (toggle) toggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      localStorage.setItem(themeStorageKey, next);
+      applyTheme(next);
+    });
+  });
   let token = sessionStorage.getItem("agent_owner_token") || "";
   const headers = () => ({ "content-type": "application/json", authorization: "Bearer " + token });
   async function api(path, options = {}) {
