@@ -4,36 +4,42 @@ function endpoint(baseUrl) {
   if (/\/chat\/completions$/i.test(baseUrl)) return baseUrl;
   return baseUrl.replace(/\/$/, "") + (/\/v1$/i.test(baseUrl) ? "/chat/completions" : "/v1/chat/completions");
 }
-async function callProvider(slot, prompt, timeoutMs = 25000, systemPrompt = SYSTEM) {
+function providerMessage(data) {
+  const error = data && data.error;
+  const detail = error && (error.message || error.failed_generation) ||
+    data && (data.message || data.failed_generation) || "";
+  return String(detail).slice(0, 500);
+}
+async function callProvider(slot, prompt, timeoutMs = 25000, systemPrompt = SYSTEM, maxOutputTokens = 4096) {
   let response, data;
   if (slot.provider === "gemini") {
     const url = "https://generativelanguage.googleapis.com/v1beta/models/" +
       encodeURIComponent(slot.model) + ":generateContent?key=" + encodeURIComponent(slot.apiKey);
     response = await fetch(url, { method:"POST", headers:{"content-type":"application/json"},
       body:JSON.stringify({systemInstruction:{parts:[{text:systemPrompt}]},contents:[{role:"user",parts:[{text:prompt}]}],
-        generationConfig:{responseMimeType:"application/json",temperature:0,maxOutputTokens:128}}),
+        generationConfig:{responseMimeType:"application/json",temperature:0,maxOutputTokens}}),
       signal:AbortSignal.timeout(timeoutMs) });
     data = await response.json().catch(()=>({}));
-    if (!response.ok) throw new Error("Gemini request failed ("+response.status+"): "+String(data.error?.message||"").slice(0,250));
+    if (!response.ok) throw new Error("Gemini request failed ("+response.status+"): "+providerMessage(data));
     return data.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("") || "";
   }
   const url = endpoint(slot.baseUrl);
   response = await fetch(url,{method:"POST",headers:{...(slot.apiKey?{authorization:"Bearer "+slot.apiKey}:{}),"content-type":"application/json"},
-    body:JSON.stringify({model:slot.model,temperature:0,max_tokens:128,response_format:{type:"json_object"},
+    body:JSON.stringify({model:slot.model,temperature:0,max_tokens:maxOutputTokens,response_format:{type:"json_object"},
       messages:[{role:"system",content:systemPrompt},{role:"user",content:prompt}]}),signal:AbortSignal.timeout(timeoutMs)});
   data = await response.json().catch(()=>({}));
-  if (!response.ok) throw new Error("Provider request failed ("+response.status+"): "+String(data.error?.message||"").slice(0,250));
-  return data.choices?.[0]?.message?.content || "";
+  if (!response.ok) throw new Error("Provider request failed ("+response.status+"): "+providerMessage(data));
+  const choice = data.choices?.[0];
+  if (choice?.finish_reason === "length") throw new Error("AI provider output was truncated by its token limit; increase the planner output limit.");
+  return choice?.message?.content || "";
 }
 async function testProvider(slot) {
-  // Keep the system and user instructions consistent with JSON mode.
-  // The previous default system prompt demanded plain "OK", conflicting with
-  // the JSON response_format and causing Groq to reject the test generation.
   const value = await callProvider(
     slot,
     "Return a JSON object with one key named status and the string value OK.",
     25000,
-    "You are testing an AI provider connection. Respond only with a valid JSON object. Do not return plain text or markdown."
+    "You are testing an AI provider connection. Respond only with a valid JSON object. Do not return plain text or markdown.",
+    512
   );
   if (!value.trim()) throw new Error("Provider returned an empty response.");
   try {
