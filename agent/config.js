@@ -17,8 +17,8 @@ const config = {
   bridge: {
     enabled: process.env.BRIDGE_ENABLED === "true",
     secret: process.env.BRIDGE_SECRET || "",
-    allowedSenderIds: (process.env.AGENT_ALLOWED_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean),
-    ownerSenderIds: (process.env.AGENT_OWNER_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean)
+    allowedSenderIds: (process.env.AGENT_ALLOWED_SENDER_IDS || process.env.BRIDGE_ALLOWED_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean),
+    ownerSenderIds: (process.env.AGENT_OWNER_SENDER_IDS || process.env.BRIDGE_OWNER_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean)
   },
   security: {
     requireApproval: true,
