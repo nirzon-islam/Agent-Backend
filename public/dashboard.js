@@ -125,7 +125,7 @@
     const account = data.account || {};
     const sessionState = account.sessionState || account.state || "unknown";
     const workerState = account.workerState || "unknown";
-    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Unknown" };
+    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Connection issue", unknown: "Unknown" };
     const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown" };
     $("workerState").textContent = workerLabels[workerState] || workerState;
     $("workerState").className = "status " + (workerState === "online" ? "state-good" : (workerState === "offline" ? "state-bad" : ""));
