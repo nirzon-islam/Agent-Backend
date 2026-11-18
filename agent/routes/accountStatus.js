@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
   try {
     const record = await BotAccountStatus.findOne({ key: "primary" }).lean();
     const lastHeartbeatAt = record?.lastHeartbeatAt || null;
-    const stale = !lastHeartbeatAt || Date.now() - new Date(lastHeartbeatAt).getTime() > 90 * 1000;
+    const stale = !lastHeartbeatAt || Date.now() - new Date(lastHeartbeatAt).getTime() > 12 * 1000;
     return res.json({
       success: true,
       account: {

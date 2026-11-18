@@ -120,12 +120,16 @@
 
   let previousAccountState = "";
   let activeRecoveryRequestId = "";
+  let accountStatusRefreshInFlight = false;
   async function refreshAccountStatus() {
+    if (accountStatusRefreshInFlight || !token) return;
+    accountStatusRefreshInFlight = true;
+    try {
     const data = await api("/api/account/status");
     const account = data.account || {};
     const sessionState = account.sessionState || account.state || "unknown";
     const workerState = account.workerState || "unknown";
-    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Login error", unknown: "Unknown" };
+    const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Connection issue", unknown: "Unknown" };
     const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown" };
     $("workerState").textContent = workerLabels[workerState] || workerState;
     $("workerState").className = "status " + (workerState === "online" ? "state-good" : (workerState === "offline" ? "state-bad" : ""));
@@ -138,6 +142,9 @@
     $("recoveryNote").textContent = data.recovery?.note || "Complete any Facebook security checks manually.";
     if (previousAccountState && previousAccountState !== sessionState && sessionState !== "online" && "Notification" in window && Notification.permission === "granted") new Notification("Agent account alert", { body: "Facebook bot session: " + (sessionLabels[sessionState] || sessionState) });
     previousAccountState = sessionState;
+    } finally {
+      accountStatusRefreshInFlight = false;
+    }
   }
   $("enableNotifications").addEventListener("click", async () => {
     if (!("Notification" in window)) { $("notificationMessage").textContent = "Browser notifications are not supported."; return; }
@@ -279,6 +286,7 @@
   $("sectionMenu").addEventListener("click", event => { const button=event.target.closest(".navItem"); if (button) setView(button.dataset.view); });
   setView("home");
   setInterval(() => { if (token && activeRecoveryRequestId && !document.hidden) void refreshRecoveryProgress(); }, 3000);
+  setInterval(() => { if (token && !document.hidden) void refreshAccountStatus().catch(() => {}); }, 3000);
   $("logoutBtn").addEventListener("click", () => { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); });
   if (token) { showApp(true); refresh(); setInterval(() => { if (token && !document.hidden) refresh(); }, 15000); } else showApp(false);
 })();
