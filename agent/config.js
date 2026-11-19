@@ -21,7 +21,8 @@ const config = {
     ownerSenderIds: (process.env.AGENT_OWNER_SENDER_IDS || process.env.BRIDGE_OWNER_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean)
   },
   fcaLicense: {
-    privateKey: (process.env.FCA_LICENSE_PRIVATE_KEY || "").replace(/\\n/g, "\n")
+    privateKey: (process.env.FCA_LICENSE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+    ownerFacebookId: (process.env.FCA_OWNER_FACEBOOK_ID || "").trim()
   },
   security: {
     requireApproval: true,
@@ -49,7 +50,7 @@ if (hasUsername) {
   if (config.adminBootstrap.password.length < 8 || config.adminBootstrap.password.length > 128) throw new Error("ADMIN_PASSWORD must be 8-128 characters.");
 }
 
-if (config.bridge.enabled && config.bridge.secret.length < 32) {
+if (config.fcaLicense.ownerFacebookId && !/^\\d{5,30}$/.test(config.fcaLicense.ownerFacebookId)) {\n  throw new Error("FCA_OWNER_FACEBOOK_ID must be a numeric Facebook ID (5-30 digits).");\n}\n\nif (config.bridge.enabled && config.bridge.secret.length < 32) {
   throw new Error("BRIDGE_SECRET must contain at least 32 characters when BRIDGE_ENABLED=true.");
 }
 
