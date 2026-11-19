@@ -7,6 +7,7 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const { rateLimit } = require("express-rate-limit");
 const path = require("path");
 
 const config = require("./agent/config");
@@ -62,7 +63,7 @@ app.use("/api/approvals", authenticate, requireOwner, approvalRoutes);
 app.use("/api/account/status", authenticate, requireOwner, accountStatusRoutes);
 app.use("/api/ai-settings", authenticate, requireOwner, aiSettingsRoutes);
 app.use("/api/fca-licenses", authenticate, requireOwner, fcaLicenseRoutes.ownerRouter);
-app.use("/api/fca-license", fcaLicenseRoutes.publicRouter);
+const fcaLicenseRefreshLimiter = rateLimit({\n  windowMs: 15 * 60 * 1000,\n  limit: 120,\n  standardHeaders: "draft-8",\n  legacyHeaders: false,\n  message: { success: false, message: "Too many license refresh attempts. Try again later." }\n});\napp.use("/api/fca-license", fcaLicenseRefreshLimiter, fcaLicenseRoutes.publicRouter);
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
 async function bootstrapOwner() {
