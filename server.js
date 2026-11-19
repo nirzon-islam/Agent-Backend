@@ -24,6 +24,7 @@ const taskRoutes = require("./agent/routes/tasks");
 const approvalRoutes = require("./agent/routes/approvals");
 const accountStatusRoutes = require("./agent/routes/accountStatus");
 const aiSettingsRoutes = require("./agent/routes/aiSettings");
+const fcaLicenseRoutes = require("./agent/routes/fcaLicenses");
 const { resumePendingPlans } = require("./agent/planner");
 
 const app = express();
@@ -60,6 +61,8 @@ app.use("/api/tasks", authenticate, requireOwner, taskRoutes);
 app.use("/api/approvals", authenticate, requireOwner, approvalRoutes);
 app.use("/api/account/status", authenticate, requireOwner, accountStatusRoutes);
 app.use("/api/ai-settings", authenticate, requireOwner, aiSettingsRoutes);
+app.use("/api/fca-licenses", authenticate, requireOwner, fcaLicenseRoutes.ownerRouter);
+app.use("/api/fca-license", fcaLicenseRoutes.publicRouter);
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
 async function bootstrapOwner() {
