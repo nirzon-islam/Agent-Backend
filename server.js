@@ -70,6 +70,14 @@ const fcaLicenseRefreshLimiter = rateLimit({
   legacyHeaders: false,
   message: { success: false, message: "Too many license refresh attempts. Try again later." }
 });
+const fcaLicenseRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { success: false, message: "Too many automatic license requests. Try again later." }
+});
+app.use("/api/fca-license/request", fcaLicenseRequestLimiter);
 app.use("/api/fca-license", fcaLicenseRefreshLimiter, fcaLicenseRoutes.publicRouter);
 app.use("/api/bridge", serviceAuth, bridgeRoutes);
 
