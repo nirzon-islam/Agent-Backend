@@ -101,3 +101,7 @@ Copyright (c) 2026 Md SalmaN (NirZon). All rights reserved. See the repository's
 
 ---
 💜 Built for secure, controlled AI-powered GoatBot management.
+
+### Automatic OmegA-FCA licensing
+
+FCA installations can request a license without manual owner approval via `POST /api/fca-license/request`. Submit `ownerId`, `installationId`, and optional `features`; successful requests are automatically approved and receive a 30-day license plus a one-time license key. The endpoint is rate-limited to 10 requests per IP per hour. Existing active licenses are not silently replaced; if a key is lost, the owner must revoke/reissue it through the authenticated owner dashboard/API. Configure `FCA_LICENSE_PRIVATE_KEY` before enabling issuance. Treat the returned license key as a secret and store it in the host's secret manager.
