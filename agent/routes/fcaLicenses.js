@@ -69,6 +69,54 @@ ownerRouter.post("/:licenseId/revoke", async (req, res) => {
   }
 });
 
+// Automatic self-service issuance: every valid installation request is approved without owner review.
+publicRouter.post("/request", async (req, res) => {
+  try {
+    const ownerId = typeof req.body.ownerId === "string" ? req.body.ownerId.trim() : "";
+    const installationId = typeof req.body.installationId === "string" ? req.body.installationId.trim() : "";
+    if (!ownerId || ownerId.length > 128 || !/^[A-Za-z0-9._:-]{8,128}$/.test(installationId)) {
+      return res.status(400).json({ success: false, message: "Valid owner ID and installation ID are required" });
+    }
+    if (!config.fcaLicense.privateKey) {
+      return res.status(503).json({ success: false, message: "FCA license signing key is not configured" });
+    }
+    const features = service.validateFeatures(req.body.features);
+    const existing = await FCALicense.findOne({ ownerId, installationId, status: "active", expiresAt: { $gt: new Date() } }).select("-licenseKeyHash").lean();
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        code: "LICENSE_ALREADY_ISSUED",
+        message: "An active license already exists for this installation. Contact the service owner for recovery."
+      });
+    }
+    const licenseId = "lic_" + crypto.randomBytes(16).toString("hex");
+    const licenseKey = service.createLicenseKey();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const license = await FCALicense.create({
+      licenseId, ownerId, installationId,
+      licenseKeyHash: service.hashLicenseKey(licenseKey),
+      features, expiresAt, createdBy: "automatic-self-service"
+    });
+    const token = service.signLicenseToken(license, config.fcaLicense.privateKey);
+    license.lastIssuedAt = new Date();
+    await license.save();
+    return res.status(201).json({
+      success: true,
+      approved: true,
+      automatic: true,
+      license: { licenseId, ownerId, installationId, features, expiresAt },
+      licenseKey,
+      token,
+      tokenTtlSeconds: 900,
+      warning: "Save the license key securely. It is shown only once."
+    });
+  } catch (error) {
+    if (error.message === "Invalid FCA license features") return res.status(400).json({ success: false, message: error.message });
+    if (error && error.code === 11000) return res.status(409).json({ success: false, message: "A license request for this installation was processed concurrently. Retry once." });
+    return res.status(503).json({ success: false, message: "Unable to issue automatic FCA license" });
+  }
+});
+
 publicRouter.post("/refresh", async (req, res) => {
   try {
     const licenseId = typeof req.body.licenseId === "string" ? req.body.licenseId.trim() : "";
