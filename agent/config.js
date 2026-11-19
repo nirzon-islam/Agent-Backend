@@ -50,7 +50,11 @@ if (hasUsername) {
   if (config.adminBootstrap.password.length < 8 || config.adminBootstrap.password.length > 128) throw new Error("ADMIN_PASSWORD must be 8-128 characters.");
 }
 
-if (config.fcaLicense.ownerFacebookId && !/^\\d{5,30}$/.test(config.fcaLicense.ownerFacebookId)) {\n  throw new Error("FCA_OWNER_FACEBOOK_ID must be a numeric Facebook ID (5-30 digits).");\n}\n\nif (config.bridge.enabled && config.bridge.secret.length < 32) {
+if (config.fcaLicense.ownerFacebookId && !/^\\d{5,30}$/.test(config.fcaLicense.ownerFacebookId)) {
+  throw new Error("FCA_OWNER_FACEBOOK_ID must be a numeric Facebook ID (5-30 digits).");
+}
+
+if (config.bridge.enabled && config.bridge.secret.length < 32) {
   throw new Error("BRIDGE_SECRET must contain at least 32 characters when BRIDGE_ENABLED=true.");
 }
 
