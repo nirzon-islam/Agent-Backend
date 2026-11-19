@@ -28,6 +28,7 @@ ownerRouter.post("/", async (req, res) => {
       return res.status(400).json({ success: false, message: "Owner ID, installation ID, and a 1-3650 day duration are required" });
     }
     const features = service.validateFeatures(req.body.features);
+    if (!config.fcaLicense.privateKey) return res.status(503).json({ success: false, message: "FCA license signing key is not configured" });
     const licenseId = "lic_" + crypto.randomBytes(16).toString("hex");
     const licenseKey = service.createLicenseKey();
     const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
@@ -48,7 +49,8 @@ ownerRouter.post("/", async (req, res) => {
       warning: "Store the license key securely. It is shown only once."
     });
   } catch (error) {
-    const message = error.message === "FCA license signing key is not configured" ? error.message : "Unable to create FCA license";
+    if (error.message === "Invalid FCA license features") return res.status(400).json({ success: false, message: error.message });
+    const message = error.message === "FCA license signing key is not configured" || error.message === "FCA license signing key is invalid" || error.message === "FCA license signing key must be Ed25519" ? error.message : "Unable to create FCA license";
     return res.status(503).json({ success: false, message });
   }
 });
