@@ -1,0 +1,91 @@
+"use strict";
+
+const crypto = require("node:crypto");
+const express = require("express");
+const FCALicense = require("../models/FCALicense");
+const config = require("../config");
+const service = require("../fcaLicenseService");
+
+const ownerRouter = express.Router();
+const publicRouter = express.Router();
+
+ownerRouter.get("/", async (req, res) => {
+  try {
+    const licenses = await FCALicense.find().select("-licenseKeyHash").sort({ createdAt: -1 }).limit(200).lean();
+    return res.json({ success: true, licenses });
+  } catch {
+    return res.status(503).json({ success: false, message: "Unable to list FCA licenses" });
+  }
+});
+
+ownerRouter.post("/", async (req, res) => {
+  try {
+    const ownerId = typeof req.body.ownerId === "string" ? req.body.ownerId.trim() : "";
+    const installationId = typeof req.body.installationId === "string" ? req.body.installationId.trim() : "";
+    const durationDays = Number(req.body.durationDays || 30);
+    if (!ownerId || ownerId.length > 128 || !installationId || installationId.length > 128 ||
+        !Number.isInteger(durationDays) || durationDays < 1 || durationDays > 3650) {
+      return res.status(400).json({ success: false, message: "Owner ID, installation ID, and a 1-3650 day duration are required" });
+    }
+    const features = service.validateFeatures(req.body.features);
+    const licenseId = "lic_" + crypto.randomBytes(16).toString("hex");
+    const licenseKey = service.createLicenseKey();
+    const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+    const license = await FCALicense.create({
+      licenseId, ownerId, installationId,
+      licenseKeyHash: service.hashLicenseKey(licenseKey),
+      features, expiresAt, createdBy: String(req.user.id)
+    });
+    const token = service.signLicenseToken(license, config.fcaLicense.privateKey);
+    license.lastIssuedAt = new Date();
+    await license.save();
+    return res.status(201).json({
+      success: true,
+      license: { licenseId, ownerId, installationId, features, expiresAt },
+      licenseKey,
+      token,
+      tokenTtlSeconds: 900,
+      warning: "Store the license key securely. It is shown only once."
+    });
+  } catch (error) {
+    const message = error.message === "FCA license signing key is not configured" ? error.message : "Unable to create FCA license";
+    return res.status(503).json({ success: false, message });
+  }
+});
+
+ownerRouter.post("/:licenseId/revoke", async (req, res) => {
+  try {
+    const license = await FCALicense.findOneAndUpdate(
+      { licenseId: req.params.licenseId, status: "active" },
+      { $set: { status: "revoked", revokedAt: new Date() } },
+      { new: true }
+    ).select("licenseId status revokedAt").lean();
+    if (!license) return res.status(404).json({ success: false, message: "Active FCA license not found" });
+    return res.json({ success: true, license });
+  } catch {
+    return res.status(503).json({ success: false, message: "Unable to revoke FCA license" });
+  }
+});
+
+publicRouter.post("/refresh", async (req, res) => {
+  try {
+    const licenseId = typeof req.body.licenseId === "string" ? req.body.licenseId.trim() : "";
+    const installationId = typeof req.body.installationId === "string" ? req.body.installationId.trim() : "";
+    const licenseKey = typeof req.body.licenseKey === "string" ? req.body.licenseKey : "";
+    if (!/^lic_[a-f0-9]{32}$/.test(licenseId) || !installationId || installationId.length > 128 || licenseKey.length < 32 || licenseKey.length > 128) {
+      return res.status(400).json({ success: false, message: "Invalid license refresh request" });
+    }
+    const license = await FCALicense.findOne({ licenseId, installationId, status: "active", expiresAt: { $gt: new Date() } }).select("+licenseKeyHash");
+    if (!license || !service.safeHashEqual(service.hashLicenseKey(licenseKey), license.licenseKeyHash)) {
+      return res.status(403).json({ success: false, message: "License is not active for this installation" });
+    }
+    const token = service.signLicenseToken(license, config.fcaLicense.privateKey);
+    license.lastIssuedAt = new Date();
+    await license.save();
+    return res.json({ success: true, token, tokenTtlSeconds: 900, expiresAt: license.expiresAt });
+  } catch {
+    return res.status(503).json({ success: false, message: "Unable to refresh FCA license" });
+  }
+});
+
+module.exports = { ownerRouter, publicRouter };
