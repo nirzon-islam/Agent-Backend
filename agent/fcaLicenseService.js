@@ -7,7 +7,11 @@ const TOKEN_TTL_SECONDS = 15 * 60;
 
 function normalizePrivateKey(value) {
   if (typeof value !== "string" || !value.includes("PRIVATE KEY")) throw new Error("FCA license signing key is not configured");
-  return value.replace(/\\n/g, "\n");
+  let key;
+  try { key = crypto.createPrivateKey(value.replace(/\\n/g, "\n")); }
+  catch { throw new Error("FCA license signing key is invalid"); }
+  if (key.asymmetricKeyType !== "ed25519") throw new Error("FCA license signing key must be Ed25519");
+  return key;
 }
 
 function hashLicenseKey(key) {
