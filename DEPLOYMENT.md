@@ -99,3 +99,34 @@ Facebook may require checkpoint or manual security verification. A successful ba
 ## Security
 
 Never commit production secrets. Removing a secret from the latest file does not remove it from Git history. Revoke/rotate exposed credentials at their provider, review repository history and restrict access. Do not paste secrets into issues, pull requests or chat.
+
+
+## OmegA-FCA owner licensing
+
+The Agent Backend now contains owner-only FCA license management and a public key-authenticated refresh endpoint. It uses the existing MongoDB database; no second database or separate license backend is introduced.
+
+### Signing key setup
+
+Generate an Ed25519 key pair on a trusted local machine:
+
+\`\`\`sh
+openssl genpkey -algorithm ED25519 -out fca-license-private.pem
+openssl pkey -in fca-license-private.pem -pubout -out fca-license-public.pem
+\`\`\`
+
+- Store the **private key** only in the Agent Backend host secret \`FCA_LICENSE_PRIVATE_KEY\`. Enter the PEM with newlines preserved or escaped as \`\\n\`.
+- Store the matching **public key** in the approved OmegA-FCA runtime as \`OMEGA_FCA_LICENSE_PUBLIC_KEY\`.
+- Never commit either key. Back up the private key securely; losing it prevents issuing/refreshing licenses.
+- Do not deploy or enable the license workflow until the key pair is configured and verified.
+
+### Owner API
+
+All management routes require an authenticated Agent Backend Owner session:
+
+- \`GET /api/fca-licenses\` — list license records (license secrets are never returned).
+- \`POST /api/fca-licenses\` — issue an installation-bound license. JSON body: \`ownerId\`, \`installationId\`, optional \`durationDays\` (1–3650), optional \`features\` (\`messaging\`, \`threads\`, \`groups\`, \`reactions\`, \`events\`).
+- \`POST /api/fca-licenses/:licenseId/revoke\` — revoke an active license.
+
+The issue response displays \`licenseKey\` only once. Save it in the approved runtime's secret store. The signed token lasts 15 minutes; the runtime must refresh it using \`POST /api/fca-license/refresh\` with \`licenseId\`, \`installationId\`, and \`licenseKey\`. Revocation prevents future refreshes; an already-issued token may remain valid for at most its remaining 15-minute lifetime.
+
+This API is not yet connected to a dashboard UI. Use the authenticated Owner API only; do not expose the license key in Messenger, task history, logs, or browser-readable public pages.
