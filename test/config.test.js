@@ -8,17 +8,17 @@ const path = require("node:path");
 const configPath = path.resolve(__dirname, "../agent/config.js");
 
 function loadConfig(extraEnv = {}) {
-  const script = "const c=require(" + JSON.stringify(configPath) + "); process.stdout.write(JSON.stringify({enabled:c.bridge.enabled, secretLength:c.bridge.secret.length, allowed:c.bridge.allowedSenderIds, owners:c.bridge.ownerSenderIds}));";
+  const script = "const c=require(" + JSON.stringify(configPath) + "); process.stdout.write(JSON.stringify({enabled:c.bridge.enabled, secretLength:c.bridge.secret.length, allowed:c.bridge.allowedSenderIds, owners:c.bridge.ownerSenderIds, ownerFacebookId:c.fcaLicense.ownerFacebookId}));";
   return spawnSync(process.execPath, ["-e", script], {
     encoding: "utf8",
-    env: { ...process.env, ADMIN_USERNAME: "", ADMIN_PASSWORD: "", BRIDGE_ENABLED: "", BRIDGE_SECRET: "", ...extraEnv }
+    env: { ...process.env, ADMIN_USERNAME: "", ADMIN_PASSWORD: "", BRIDGE_ENABLED: "", BRIDGE_SECRET: "", FCA_OWNER_FACEBOOK_ID: "", ...extraEnv }
   });
 }
 
 test("Bridge is disabled by default", () => {
   const result = loadConfig();
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), { enabled: false, secretLength: 0, allowed: [], owners: [] });
+  assert.deepEqual(JSON.parse(result.stdout), { enabled: false, secretLength: 0, allowed: [], owners: [], ownerFacebookId: "" });
 });
 
 test("Admin password accepts 8 characters and rejects fewer than 8", () => {
@@ -37,7 +37,7 @@ test("Bridge requires a sufficiently long secret when enabled", () => {
 
   const valid = loadConfig({ BRIDGE_ENABLED: "true", BRIDGE_SECRET: "x".repeat(48) });
   assert.equal(valid.status, 0, valid.stderr);
-  assert.deepEqual(JSON.parse(valid.stdout), { enabled: true, secretLength: 48, allowed: [], owners: [] });
+  assert.deepEqual(JSON.parse(valid.stdout), { enabled: true, secretLength: 48, allowed: [], owners: [], ownerFacebookId: "" });
 });
 
 test("Bridge remains disabled unless the flag is exactly true", () => {
@@ -68,4 +68,16 @@ test("Current Agent sender ID environment names take precedence", () => {
   const parsed = JSON.parse(result.stdout);
   assert.deepEqual(parsed.allowed, ["3001"]);
   assert.deepEqual(parsed.owners, ["4001"]);
+});
+
+test("FCA owner Facebook ID accepts numeric IDs and rejects malformed values", () => {
+  const valid = loadConfig({ FCA_OWNER_FACEBOOK_ID: "123456789012345" });
+  assert.equal(valid.status, 0, valid.stderr);
+  assert.equal(JSON.parse(valid.stdout).ownerFacebookId, "123456789012345");
+
+  for (const invalidId of ["abc12345", "1234", "1234567890123456789012345678901"]) {
+    const invalid = loadConfig({ FCA_OWNER_FACEBOOK_ID: invalidId });
+    assert.notEqual(invalid.status, 0);
+    assert.match(invalid.stderr, /FCA_OWNER_FACEBOOK_ID must be a numeric Facebook ID/);
+  }
 });
