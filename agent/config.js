@@ -20,6 +20,9 @@ const config = {
     allowedSenderIds: (process.env.AGENT_ALLOWED_SENDER_IDS || process.env.BRIDGE_ALLOWED_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean),
     ownerSenderIds: (process.env.AGENT_OWNER_SENDER_IDS || process.env.BRIDGE_OWNER_SENDER_IDS || "").split(",").map(value => value.trim()).filter(Boolean)
   },
+  fcaLicense: {
+    privateKey: (process.env.FCA_LICENSE_PRIVATE_KEY || "").replace(/\\n/g, "\n")
+  },
   security: {
     requireApproval: true,
     backupBeforeChanges: true,
