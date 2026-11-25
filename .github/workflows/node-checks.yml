@@ -2,7 +2,7 @@ name: Node.js checks
 
 on:
   push:
-    branches: [main, "fix/**", "agent/**"]
+    branches: [main, "fix/**", "agent/**", "recovery-progress-fix"]
   pull_request:
     branches: [main]
 
