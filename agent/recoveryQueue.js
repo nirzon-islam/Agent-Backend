@@ -65,7 +65,7 @@ function addEvent(meta, state, message) {
 }
 
 function reportProgress({ requestId, botId, state, message }) {
-  const allowed = new Set(["claimed", "validating", "login_started", "authenticated", "mqtt_connecting", "starting", "online", "checkpoint", "error", "expired"]);
+  const allowed = new Set(["claimed", "validating", "login_started", "provider_ready", "authenticated", "mqtt_connecting", "starting", "online", "checkpoint", "error", "expired"]);
   if (!allowed.has(state) || typeof requestId !== "string" || typeof botId !== "string") return false;
   const meta = history.get(requestId);
   if (!meta || meta.botId !== botId) return false;
