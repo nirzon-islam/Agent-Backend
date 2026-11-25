@@ -439,7 +439,7 @@ router.post("/account-status", async (req, res) => {
     const sessionState = typeof req.body.sessionState === "string" ? req.body.sessionState : legacyState;
     const workerState = typeof req.body.workerState === "string" ? req.body.workerState : "unknown";
     const allowedSessions = new Set(["online", "logged_out", "checkpoint", "error", "unknown"]);
-    const allowedWorkers = new Set(["online", "offline", "unknown"]);
+    const allowedWorkers = new Set(["online", "offline", "unknown", "disabled"]);
     const accountId = typeof req.body.accountId === "string" ? req.body.accountId.trim().slice(0, 128) : "";
     const message = typeof req.body.message === "string" ? req.body.message.trim().slice(0, 500) : "";
     if (!allowedSessions.has(sessionState) || !allowedWorkers.has(workerState)) return res.status(400).json({ success: false, message: "Invalid worker or Facebook session state" });
