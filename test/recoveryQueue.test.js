@@ -58,7 +58,7 @@ test("accepts progress states emitted by the GoatBot recovery handler", () => {
   const queued = recoveryQueue.submit({ cookie: appstate(), ownerId: "test-owner" });
   const claimed = recoveryQueue.claimNext();
   assert.equal(claimed.requestId, queued.requestId);
-  for (const state of ["validating", "authenticated", "starting", "mqtt_connecting", "online"]) {
+  for (const state of ["validating", "provider_ready", "authenticated", "starting", "mqtt_connecting", "online"]) {
     assert.equal(recoveryQueue.reportProgress({
       requestId: queued.requestId,
       botId: queued.botId,
