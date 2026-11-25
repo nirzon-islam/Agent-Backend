@@ -130,7 +130,7 @@
     const sessionState = account.sessionState || account.state || "unknown";
     const workerState = account.workerState || "unknown";
     const sessionLabels = { online: "Logged in", logged_out: "Logged out", checkpoint: "Checkpoint required", error: "Connection issue", unknown: "Unknown" };
-    const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown" };
+    const workerLabels = { online: "Online", offline: "Offline", unknown: "Unknown", disabled: "Worker disabled" };
     $("workerState").textContent = workerLabels[workerState] || workerState;
     $("workerState").className = "status " + (workerState === "online" ? "state-good" : (workerState === "offline" ? "state-bad" : ""));
     $("accountState").textContent = sessionLabels[sessionState] || sessionState;
@@ -197,19 +197,38 @@
     const button=$("refreshBtn");
     if (button && !button.disabled) busy(button,true,"Refreshing…","↻ Refresh");
     feedback("refreshMessage","Updating dashboard…","loading");
-    try {
-      const [approvals,tasks] = await Promise.all([api("/api/approvals/"),api("/api/tasks/?limit=50")]);
-      renderApprovals(approvals.approvals || []); renderTasks(tasks.tasks || []);
-      await refreshAccountStatus();
-      await loadAISettings();
-      $("connection").textContent = "Connected"; $("connection").className = "pill pill-good";
+    // Account health is independent from approvals, tasks and AI settings.
+    // A failure in one panel must not hide a successfully reported Facebook login.
+    const jobs = [
+      ["approvals", () => api("/api/approvals/")],
+      ["tasks", () => api("/api/tasks/?limit=50")],
+      ["account", () => refreshAccountStatus()],
+      ["ai", () => loadAISettings()]
+    ];
+    const results = await Promise.allSettled(jobs.map(([, run]) => run()));
+    const failures = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === "rejected") {
+        failures.push(jobs[i][0] + ": " + result.reason.message);
+        if (/session|authentication|invalid/i.test(result.reason.message)) {
+          token=""; sessionStorage.removeItem("agent_owner_token"); showApp(false);
+        }
+      } else if (jobs[i][0] === "approvals") {
+        renderApprovals(result.value.approvals || []);
+      } else if (jobs[i][0] === "tasks") {
+        renderTasks(result.value.tasks || []);
+      }
+    }
+    const accountFailed = results[2].status === "rejected";
+    $("connection").textContent = accountFailed ? "Status unavailable" : (failures.length ? "Partially connected" : "Connected");
+    $("connection").className = "pill " + (accountFailed ? "pill-bad" : (failures.length ? "" : "pill-good"));
+    if (failures.length) {
+      feedback("refreshMessage","Some dashboard panels could not refresh: " + failures.join(" • "),"error");
+    } else {
       feedback("refreshMessage","✓ Updated just now","success");
-    } catch(error) {
-      if (/session|authentication|invalid/i.test(error.message)) { token="";sessionStorage.removeItem("agent_owner_token");showApp(false); }
-      $("connection").textContent = "Connection issue"; $("connection").className = "pill pill-bad";
-      feedback("refreshMessage","Refresh failed: "+error.message,"error");
-      feedback("loginMessage",error.message,"error");
-    } finally { if (button) busy(button,false,"Refreshing…","↻ Refresh"); }
+    }
+    if (button) busy(button,false,"Refreshing…","↻ Refresh");
   }
 
   async function refreshRecoveryProgress() {
